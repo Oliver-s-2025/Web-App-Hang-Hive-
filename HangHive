@@ -1,5 +1,48 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, MapPin, Clock, Plus, Trash2, LogOut, MessageCircle, Send, Check, X, UserPlus, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Users, MapPin, Clock, Plus, Trash2, LogOut, MessageCircle, Send, Check, X, UserPlus, Calendar, Moon, Sun, Search, HelpCircle, Loader2, Bell, Copy, Star, Smile } from 'lucide-react';
+
+// Toast Notification Component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 3000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+  
+  return (
+    <div className={`fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-up flex items-center gap-2`}>
+      {type === 'success' && <Check className="w-5 h-5" />}
+      {type === 'error' && <X className="w-5 h-5" />}
+      {type === 'info' && <Bell className="w-5 h-5" />}
+      {message}
+    </div>
+  );
+};
+
+// Loading Spinner Component
+const Spinner = ({ size = 'md' }) => {
+  const sizeClasses = { sm: 'w-4 h-4', md: 'w-6 h-6', lg: 'w-8 h-8' };
+  return <Loader2 className={`${sizeClasses[size]} animate-spin`} />;
+};
+
+// Emoji Picker Component
+const EmojiPicker = ({ onSelect, onClose }) => {
+  const emojis = ['👍', '❤️', '😂', '😮', '😢', '🎉', '🔥', '👏'];
+  return (
+    <div className="absolute bottom-full mb-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-2 flex gap-1 border dark:border-gray-700">
+      {emojis.map(emoji => (
+        <button
+          key={emoji}
+          onClick={() => { onSelect(emoji); onClose(); }}
+          className="hover:bg-gray-100 dark:hover:bg-gray-700 p-1 rounded transition-colors text-lg"
+        >
+          {emoji}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 export default function HangHive() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -18,7 +61,32 @@ export default function HangHive() {
     location: '',
     description: ''
   });
+  const [darkMode, setDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hangHive-darkMode') === 'true';
+    }
+    return false;
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [hangoutFilter, setHangoutFilter] = useState('all'); // all, upcoming, past
+  const [toast, setToast] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [emojiPickerMsg, setEmojiPickerMsg] = useState(null);
   const chatEndRef = useRef(null);
+
+  // Dark mode effect
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('hangHive-darkMode', darkMode);
+  }, [darkMode]);
+
+  const showToast = useCallback((message, type = 'info') => {
+    setToast({ message, type });
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -31,6 +99,7 @@ export default function HangHive() {
   }, [currentGroup?.messages]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const groupsData = await window.storage.get('hang-hive-groups', true);
       if (groupsData) {
@@ -39,6 +108,7 @@ export default function HangHive() {
     } catch (error) {
       setGroups([]);
     }
+    setLoading(false);
   };
 
   const saveGroups = async (updatedGroups) => {
@@ -46,9 +116,19 @@ export default function HangHive() {
     await window.storage.set('hang-hive-groups', JSON.stringify(updatedGroups), true);
   };
 
+  const copyToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('Copied to clipboard!', 'success');
+    } catch (err) {
+      showToast('Failed to copy', 'error');
+    }
+  };
+
   const handleLogin = () => {
     if (username.trim()) {
       setCurrentUser({ username: username.trim(), id: Date.now() });
+      showToast(`Welcome, ${username.trim()}!`, 'success');
     }
   };
 
@@ -56,6 +136,7 @@ export default function HangHive() {
     setCurrentUser(null);
     setCurrentGroup(null);
     setUsername('');
+    showToast('Logged out successfully', 'info');
   };
 
   const generateCode = () => {
@@ -64,6 +145,7 @@ export default function HangHive() {
 
   const createGroup = async () => {
     if (!newGroupName.trim()) return;
+    setLoading(true);
     
     const newGroup = {
       id: Date.now(),
@@ -72,17 +154,21 @@ export default function HangHive() {
       members: [currentUser],
       messages: [],
       hangouts: [],
-      createdBy: currentUser.username
+      createdBy: currentUser.username,
+      createdAt: new Date().toISOString()
     };
 
     const updatedGroups = [...groups, newGroup];
     await saveGroups(updatedGroups);
     setNewGroupName('');
     setShowGroupForm(false);
+    setLoading(false);
+    showToast(`Group "${newGroup.name}" created! Share code: ${newGroup.code}`, 'success');
   };
 
   const joinGroup = async () => {
     if (!joinCode.trim()) return;
+    setLoading(true);
     
     const group = groups.find(g => g.code === joinCode.toUpperCase());
     if (group) {
@@ -90,15 +176,20 @@ export default function HangHive() {
       if (!isMember) {
         group.members.push(currentUser);
         await saveGroups([...groups]);
+        showToast(`Welcome to ${group.name}!`, 'success');
+      } else {
+        showToast('You\'re already a member!', 'info');
       }
       setCurrentGroup(group);
       setJoinCode('');
     } else {
-      alert('Group not found! Check the code and try again.');
+      showToast('Group not found! Check the code and try again.', 'error');
     }
+    setLoading(false);
   };
 
   const leaveGroup = async () => {
+    const groupName = currentGroup.name;
     const updatedGroup = {
       ...currentGroup,
       members: currentGroup.members.filter(m => m.id !== currentUser.id)
@@ -106,6 +197,7 @@ export default function HangHive() {
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
     await saveGroups(updatedGroups);
     setCurrentGroup(null);
+    showToast(`You left ${groupName}`, 'info');
   };
 
   const sendMessage = async () => {
@@ -115,7 +207,8 @@ export default function HangHive() {
       id: Date.now(),
       text: message.trim(),
       sender: currentUser.username,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      reactions: {}
     };
 
     const updatedGroup = {
@@ -129,17 +222,41 @@ export default function HangHive() {
     setMessage('');
   };
 
+  const addReaction = async (messageId, emoji) => {
+    const updatedMessages = currentGroup.messages.map(msg => {
+      if (msg.id === messageId) {
+        const reactions = { ...msg.reactions };
+        if (!reactions[emoji]) reactions[emoji] = [];
+        if (reactions[emoji].includes(currentUser.username)) {
+          reactions[emoji] = reactions[emoji].filter(u => u !== currentUser.username);
+          if (reactions[emoji].length === 0) delete reactions[emoji];
+        } else {
+          reactions[emoji].push(currentUser.username);
+        }
+        return { ...msg, reactions };
+      }
+      return msg;
+    });
+
+    const updatedGroup = { ...currentGroup, messages: updatedMessages };
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(updatedGroup);
+  };
+
   const proposeHangout = async () => {
     if (!hangoutForm.title || !hangoutForm.date || !hangoutForm.time || !hangoutForm.location) {
-      alert('Please fill in all required fields');
+      showToast('Please fill in all required fields', 'error');
       return;
     }
+    setLoading(true);
 
     const newHangout = {
       id: Date.now(),
       ...hangoutForm,
       proposedBy: currentUser.username,
-      responses: {}
+      responses: {},
+      createdAt: new Date().toISOString()
     };
 
     const updatedGroup = {
@@ -152,6 +269,8 @@ export default function HangHive() {
     setCurrentGroup(updatedGroup);
     setHangoutForm({ title: '', date: '', time: '', location: '', description: '' });
     setShowHangoutForm(false);
+    setLoading(false);
+    showToast('Hangout proposed! 🎉', 'success');
   };
 
   const respondToHangout = async (hangoutId, response) => {
@@ -179,24 +298,83 @@ export default function HangHive() {
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
     await saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
+    showToast('Hangout deleted', 'info');
+  };
+
+  // Helper functions
+  const getHangoutStatus = (hangout) => {
+    const hangoutDateTime = new Date(`${hangout.date}T${hangout.time}`);
+    const now = new Date();
+    const diffHours = (hangoutDateTime - now) / (1000 * 60 * 60);
+    
+    if (diffHours < -2) return 'past';
+    if (diffHours >= -2 && diffHours <= 2) return 'ongoing';
+    if (diffHours <= 24 && diffHours > 0) return 'soon';
+    return 'upcoming';
+  };
+
+  const getStatusBadge = (status) => {
+    const badges = {
+      past: 'bg-gray-400 text-white',
+      ongoing: 'bg-green-500 text-white animate-pulse',
+      soon: 'bg-amber-500 text-white',
+      upcoming: 'bg-blue-500 text-white'
+    };
+    const labels = {
+      past: 'Past',
+      ongoing: 'Happening Now!',
+      soon: 'Coming Soon',
+      upcoming: 'Upcoming'
+    };
+    return { className: badges[status], label: labels[status] };
+  };
+
+  const getResponseSummary = (responses) => {
+    const yes = Object.values(responses).filter(r => r === 'yes').length;
+    const no = Object.values(responses).filter(r => r === 'no').length;
+    const maybe = Object.values(responses).filter(r => r === 'maybe').length;
+    return { yes, no, maybe, total: Object.keys(responses).length };
+  };
+
+  const filterHangouts = (hangouts) => {
+    return hangouts.filter(h => {
+      const status = getHangoutStatus(h);
+      if (hangoutFilter === 'upcoming') return status !== 'past';
+      if (hangoutFilter === 'past') return status === 'past';
+      return true;
+    }).sort((a, b) => {
+      const dateA = new Date(`${a.date}T${a.time}`);
+      const dateB = new Date(`${b.date}T${b.time}`);
+      return dateA - dateB;
+    });
   };
 
   // Login Screen
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border-2 border-amber-200">
+      <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50'} flex items-center justify-center p-4 transition-colors duration-300`}>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        
+        <button
+          onClick={() => setDarkMode(!darkMode)}
+          className="absolute top-4 right-4 p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg hover:scale-110 transition-transform"
+          aria-label="Toggle dark mode"
+        >
+          {darkMode ? <Sun className="w-5 h-5 text-yellow-500" /> : <Moon className="w-5 h-5 text-gray-600" />}
+        </button>
+
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-8 max-w-md w-full border-2 border-amber-200 dark:border-amber-700 transform hover:scale-[1.02] transition-all duration-300">
           <div className="text-center mb-8">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <Users className="w-10 h-10 text-white" />
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-bounce-slow">
+              <Users className="w-12 h-12 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-800">Hang Hive</h1>
-            <p className="text-gray-600 mt-2">Plan hangouts with your crew</p>
+            <h1 className="text-4xl font-bold text-gray-800 dark:text-white">Hang Hive</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Plan hangouts with your crew 🐝</p>
           </div>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Choose a username
               </label>
               <input
@@ -204,16 +382,22 @@ export default function HangHive() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none transition-colors"
+                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none transition-colors bg-white dark:bg-gray-700 dark:text-white"
                 placeholder="Enter your username"
+                aria-label="Username input"
               />
             </div>
             <button
               onClick={handleLogin}
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+              disabled={!username.trim()}
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-[1.02] active:scale-[0.98]"
             >
-              Continue
+              Get Started 🚀
             </button>
+          </div>
+          
+          <div className="mt-6 text-center text-xs text-gray-500 dark:text-gray-400">
+            <p>Create or join groups • Propose hangouts • Chat with friends</p>
           </div>
         </div>
       </div>
@@ -223,51 +407,75 @@ export default function HangHive() {
   // Group Selection Screen
   if (!currentGroup) {
     const myGroups = groups.filter(g => g.members.some(m => m.username === currentUser.username));
+    const filteredGroups = myGroups.filter(g => 
+      g.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
     
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50">
+      <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50'} transition-colors duration-300`}>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        
         <header className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg">
           <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Users className="w-8 h-8" />
+              <div className="bg-white/20 p-2 rounded-lg">
+                <Users className="w-8 h-8" />
+              </div>
               <div>
                 <h1 className="text-2xl font-bold">Hang Hive</h1>
-                <p className="text-sm text-amber-100">Welcome, {currentUser.username}!</p>
+                <p className="text-sm text-amber-100">Welcome back, {currentUser.username}! 👋</p>
               </div>
             </div>
-            <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all">
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setDarkMode(!darkMode)} 
+                className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all"
+                aria-label="Toggle dark mode"
+              >
+                {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              </button>
+              <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all">
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
           </div>
         </header>
 
         <main className="max-w-4xl mx-auto px-4 py-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Create New Group</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200 dark:border-amber-700 hover:shadow-xl transition-all">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Plus className="w-5 h-5 text-amber-500" />
+                Create New Group
+              </h2>
               {!showGroupForm ? (
                 <button
                   onClick={() => setShowGroupForm(true)}
-                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2"
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <Plus className="w-5 h-5" />
                   Create Group
                 </button>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 animate-fade-in">
                   <input
                     type="text"
                     value={newGroupName}
                     onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && createGroup()}
                     placeholder="Group name"
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-700 dark:text-white"
                   />
                   <div className="flex gap-2">
-                    <button onClick={createGroup} className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
-                      Create
+                    <button 
+                      onClick={createGroup} 
+                      disabled={loading || !newGroupName.trim()}
+                      className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Spinner size="sm" /> : 'Create'}
                     </button>
-                    <button onClick={() => setShowGroupForm(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button onClick={() => setShowGroupForm(false)} className="px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
                       Cancel
                     </button>
                   </div>
@@ -275,51 +483,93 @@ export default function HangHive() {
               )}
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Join Group</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200 dark:border-amber-700 hover:shadow-xl transition-all">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-blue-500" />
+                Join Group
+              </h2>
               <div className="space-y-3">
                 <input
                   type="text"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
-                  placeholder="Enter group code"
-                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none uppercase"
+                  onKeyPress={(e) => e.key === 'Enter' && joinGroup()}
+                  placeholder="Enter 6-digit group code"
+                  className="w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none uppercase bg-white dark:bg-gray-700 dark:text-white tracking-widest text-center font-mono"
+                  maxLength={6}
                 />
                 <button
                   onClick={joinGroup}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2"
+                  disabled={loading || joinCode.length < 6}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  <UserPlus className="w-5 h-5" />
-                  Join Group
+                  {loading ? <Spinner size="sm" /> : <><UserPlus className="w-5 h-5" /> Join Group</>}
                 </button>
               </div>
             </div>
           </div>
 
           <div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">My Groups</h2>
-            {myGroups.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-dashed border-amber-300">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">My Groups</h2>
+              {myGroups.length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search groups..."
+                    className="pl-10 pr-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-700 dark:text-white text-sm"
+                  />
+                </div>
+              )}
+            </div>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Spinner size="lg" />
+              </div>
+            ) : filteredGroups.length === 0 ? (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-12 text-center border-2 border-dashed border-amber-300 dark:border-amber-700">
                 <Users className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                <p className="text-gray-600">You're not in any groups yet. Create or join one!</p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {searchQuery ? 'No groups match your search' : "You're not in any groups yet. Create or join one!"}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {myGroups.map(group => (
+                {filteredGroups.map(group => (
                   <div
                     key={group.id}
                     onClick={() => setCurrentGroup(group)}
-                    className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200 hover:shadow-xl transition-all cursor-pointer hover:scale-105"
+                    className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200 dark:border-amber-700 hover:shadow-xl transition-all cursor-pointer hover:scale-[1.02] group"
                   >
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">{group.name}</h3>
-                    <div className="text-sm text-gray-600 space-y-1">
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-2">{group.name}</h3>
+                      <span className="text-xs bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 px-2 py-1 rounded">
+                        {group.hangouts.filter(h => getHangoutStatus(h) !== 'past').length} active
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
                       <p className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-amber-500" />
-                        {group.members.length} members
+                        {group.members.length} member{group.members.length !== 1 ? 's' : ''}
                       </p>
-                      <p className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded inline-block font-mono">
-                        Code: {group.code}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-1 rounded font-mono flex items-center gap-1">
+                          Code: {group.code}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); copyToClipboard(group.code); }}
+                            className="hover:text-amber-500 transition-colors"
+                            aria-label="Copy code"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Click to enter →
                     </div>
                   </div>
                 ))}
@@ -332,22 +582,49 @@ export default function HangHive() {
   }
 
   // Group View
+  const filteredHangouts = filterHangouts(currentGroup.hangouts);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50">
-      <header className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg">
+    <div className={`min-h-screen ${darkMode ? 'dark bg-gray-900' : 'bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50'} transition-colors duration-300`}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      
+      <header className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <button onClick={() => setCurrentGroup(null)} className="p-2 hover:bg-white/20 rounded-lg transition-all">
-              ←
+            <button 
+              onClick={() => setCurrentGroup(null)} 
+              className="p-2 hover:bg-white/20 rounded-lg transition-all"
+              aria-label="Go back"
+            >
+              ← Back
             </button>
             <div>
               <h1 className="text-2xl font-bold">{currentGroup.name}</h1>
-              <p className="text-sm text-amber-100">Code: {currentGroup.code}</p>
+              <div className="flex items-center gap-2 text-sm text-amber-100">
+                <span>Code: {currentGroup.code}</span>
+                <button
+                  onClick={() => copyToClipboard(currentGroup.code)}
+                  className="hover:text-white transition-colors"
+                  aria-label="Copy group code"
+                >
+                  <Copy className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
-          <button onClick={leaveGroup} className="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all text-sm">
-            Leave Group
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setDarkMode(!darkMode)} 
+              className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all"
+              aria-label="Toggle dark mode"
+            >
+              {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <button onClick={leaveGroup} className="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all text-sm flex items-center gap-1">
+              <LogOut className="w-4 h-4" />
+              Leave
+            </button>
+          </div>
         </div>
       </header>
 
@@ -355,39 +632,59 @@ export default function HangHive() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Hangouts */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800">Proposed Hangouts</h2>
-                <button
-                  onClick={() => setShowHangoutForm(!showHangoutForm)}
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Propose
-                </button>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200 dark:border-amber-700">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-amber-500" />
+                  Hangouts
+                </h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600">
+                    {['all', 'upcoming', 'past'].map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setHangoutFilter(filter)}
+                        className={`px-3 py-1 text-sm capitalize transition-colors ${
+                          hangoutFilter === filter
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {filter}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => setShowHangoutForm(!showHangoutForm)}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2 transform hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Propose
+                  </button>
+                </div>
               </div>
 
               {showHangoutForm && (
-                <div className="mb-6 p-4 bg-amber-50 rounded-lg space-y-3">
+                <div className="mb-6 p-4 bg-amber-50 dark:bg-gray-700 rounded-lg space-y-3 animate-fade-in">
                   <input
                     type="text"
                     placeholder="Hangout title *"
                     value={hangoutForm.title}
                     onChange={(e) => setHangoutForm({ ...hangoutForm, title: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-800 dark:text-white"
                   />
                   <div className="grid grid-cols-2 gap-3">
                     <input
                       type="date"
                       value={hangoutForm.date}
                       onChange={(e) => setHangoutForm({ ...hangoutForm, date: e.target.value })}
-                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                      className="px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-800 dark:text-white"
                     />
                     <input
                       type="time"
                       value={hangoutForm.time}
                       onChange={(e) => setHangoutForm({ ...hangoutForm, time: e.target.value })}
-                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                      className="px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-800 dark:text-white"
                     />
                   </div>
                   <input
@@ -395,20 +692,24 @@ export default function HangHive() {
                     placeholder="Location *"
                     value={hangoutForm.location}
                     onChange={(e) => setHangoutForm({ ...hangoutForm, location: e.target.value })}
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-800 dark:text-white"
                   />
                   <textarea
-                    placeholder="Description"
+                    placeholder="Description (optional)"
                     value={hangoutForm.description}
                     onChange={(e) => setHangoutForm({ ...hangoutForm, description: e.target.value })}
                     rows="2"
-                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
+                    className="w-full px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none resize-none bg-white dark:bg-gray-800 dark:text-white"
                   />
                   <div className="flex gap-2">
-                    <button onClick={proposeHangout} className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
-                      Propose Hangout
+                    <button 
+                      onClick={proposeHangout} 
+                      disabled={loading}
+                      className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {loading ? <Spinner size="sm" /> : '🎉 Propose Hangout'}
                     </button>
-                    <button onClick={() => setShowHangoutForm(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50">
+                    <button onClick={() => setShowHangoutForm(false)} className="px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:text-white">
                       Cancel
                     </button>
                   </div>
@@ -416,68 +717,131 @@ export default function HangHive() {
               )}
 
               <div className="space-y-4">
-                {currentGroup.hangouts.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No hangouts proposed yet</p>
+                {filteredHangouts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">
+                      {hangoutFilter === 'past' ? 'No past hangouts' : 'No hangouts proposed yet. Be the first!'}
+                    </p>
+                  </div>
                 ) : (
-                  currentGroup.hangouts.map(hangout => (
-                    <div key={hangout.id} className="border-2 border-gray-200 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-3">
-                        <div>
-                          <h3 className="font-bold text-gray-800">{hangout.title}</h3>
-                          <p className="text-xs text-gray-500">Proposed by {hangout.proposedBy}</p>
+                  filteredHangouts.map(hangout => {
+                    const status = getHangoutStatus(hangout);
+                    const statusBadge = getStatusBadge(status);
+                    const responseSummary = getResponseSummary(hangout.responses);
+                    
+                    return (
+                      <div 
+                        key={hangout.id} 
+                        className={`border-2 rounded-lg p-4 transition-all hover:shadow-md ${
+                          status === 'past' 
+                            ? 'border-gray-200 dark:border-gray-700 opacity-70' 
+                            : status === 'ongoing'
+                            ? 'border-green-400 dark:border-green-600 bg-green-50 dark:bg-green-900/20'
+                            : 'border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-bold text-gray-800 dark:text-white text-lg">{hangout.title}</h3>
+                              <span className={`text-xs px-2 py-0.5 rounded-full ${statusBadge.className}`}>
+                                {statusBadge.label}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Proposed by {hangout.proposedBy}
+                            </p>
+                          </div>
+                          {hangout.proposedBy === currentUser.username && (
+                            <button 
+                              onClick={() => deleteHangout(hangout.id)} 
+                              className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 p-2 rounded transition-colors"
+                              aria-label="Delete hangout"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
-                        {hangout.proposedBy === currentUser.username && (
-                          <button onClick={() => deleteHangout(hangout.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-1 text-sm text-gray-700 mb-3">
-                        <p className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-amber-500" />
-                          {new Date(hangout.date).toLocaleDateString()} at {hangout.time}
-                        </p>
-                        <p className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-amber-500" />
-                          {hangout.location}
-                        </p>
-                        {hangout.description && <p className="text-gray-600 mt-2">{hangout.description}</p>}
-                      </div>
+                        
+                        <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300 mb-3">
+                          <p className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-amber-500" />
+                            {new Date(hangout.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at {hangout.time}
+                          </p>
+                          <p className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-amber-500" />
+                            {hangout.location}
+                          </p>
+                          {hangout.description && (
+                            <p className="text-gray-600 dark:text-gray-400 mt-2 pl-6">{hangout.description}</p>
+                          )}
+                        </div>
 
-                      <div className="border-t pt-3">
-                        <div className="flex gap-2 mb-2">
-                          <button
-                            onClick={() => respondToHangout(hangout.id, 'yes')}
-                            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
-                              hangout.responses[currentUser.username] === 'yes'
-                                ? 'bg-green-500 text-white'
-                                : 'bg-green-100 text-green-700 hover:bg-green-200'
-                            }`}
-                          >
-                            ✓ Works for me
-                          </button>
-                          <button
-                            onClick={() => respondToHangout(hangout.id, 'no')}
-                            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
-                              hangout.responses[currentUser.username] === 'no'
-                                ? 'bg-red-500 text-white'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
-                            }`}
-                          >
-                            ✗ Can't make it, sorry 
-                          </button>
+                        {/* Response Summary */}
+                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400 mb-3">
+                          <span className="flex items-center gap-1">
+                            <Check className="w-3 h-3 text-green-500" /> {responseSummary.yes} going
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <HelpCircle className="w-3 h-3 text-yellow-500" /> {responseSummary.maybe} maybe
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <X className="w-3 h-3 text-red-500" /> {responseSummary.no} can't
+                          </span>
                         </div>
-                        <div className="text-xs text-gray-600">
-                          {Object.entries(hangout.responses).map(([user, response]) => (
-                            <span key={user} className="inline-block mr-3">
-                              {user}: {response === 'yes' ? '✓' : '✗'}
-                            </span>
-                          ))}
+
+                        <div className="border-t dark:border-gray-700 pt-3">
+                          <div className="flex gap-2 mb-2">
+                            <button
+                              onClick={() => respondToHangout(hangout.id, 'yes')}
+                              className={`flex-1 py-2 rounded-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                                hangout.responses[currentUser.username] === 'yes'
+                                  ? 'bg-green-500 text-white shadow-md'
+                                  : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50'
+                              }`}
+                            >
+                              ✓ I'm in!
+                            </button>
+                            <button
+                              onClick={() => respondToHangout(hangout.id, 'maybe')}
+                              className={`flex-1 py-2 rounded-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                                hangout.responses[currentUser.username] === 'maybe'
+                                  ? 'bg-yellow-500 text-white shadow-md'
+                                  : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                              }`}
+                            >
+                              ? Maybe
+                            </button>
+                            <button
+                              onClick={() => respondToHangout(hangout.id, 'no')}
+                              className={`flex-1 py-2 rounded-lg font-medium transition-all transform hover:scale-[1.02] active:scale-[0.98] ${
+                                hangout.responses[currentUser.username] === 'no'
+                                  ? 'bg-red-500 text-white shadow-md'
+                                  : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'
+                              }`}
+                            >
+                              ✗ Can't
+                            </button>
+                          </div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 flex flex-wrap gap-2">
+                            {Object.entries(hangout.responses).map(([user, response]) => (
+                              <span 
+                                key={user} 
+                                className={`px-2 py-0.5 rounded-full ${
+                                  response === 'yes' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                                  response === 'maybe' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                                  'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                }`}
+                              >
+                                {user}: {response === 'yes' ? '✓' : response === 'maybe' ? '?' : '✗'}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -485,45 +849,106 @@ export default function HangHive() {
 
           {/* Right Column - Members & Chat */}
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Members ({currentGroup.members.length})</h2>
-              <div className="space-y-2">
-                {currentGroup.members.map(member => (
-                  <div key={member.id} className="flex items-center gap-2 text-gray-700">
-                    <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full flex items-center justify-center text-white font-bold">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-2 border-amber-200 dark:border-amber-700">
+              <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5 text-amber-500" />
+                Members ({currentGroup.members.length})
+              </h2>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {currentGroup.members.map((member, index) => (
+                  <div key={member.id} className="flex items-center gap-2 text-gray-700 dark:text-gray-300 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full flex items-center justify-center text-white font-bold shadow-md">
                       {member.username[0].toUpperCase()}
                     </div>
-                    <span>{member.username}</span>
+                    <div className="flex-1">
+                      <span className="font-medium">{member.username}</span>
+                      {member.username === currentGroup.createdBy && (
+                        <span className="ml-2 text-xs bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full">
+                          <Star className="w-3 h-3 inline mr-1" />Admin
+                        </span>
+                      )}
+                      {member.username === currentUser.username && (
+                        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">(You)</span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-lg border-2 border-amber-200 flex flex-col" style={{ height: '500px' }}>
-              <div className="p-4 border-b-2 border-amber-200">
-                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5" />
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border-2 border-amber-200 dark:border-amber-700 flex flex-col" style={{ height: '500px' }}>
+              <div className="p-4 border-b-2 border-amber-200 dark:border-amber-700">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5 text-amber-500" />
                   Group Chat
                 </h2>
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {currentGroup.messages.map(msg => (
-                  <div key={msg.id} className={`${msg.sender === currentUser.username ? 'text-right' : 'text-left'}`}>
-                    <div className={`inline-block max-w-xs ${
-                      msg.sender === currentUser.username
-                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-                        : 'bg-gray-200 text-gray-800'
-                    } rounded-lg px-4 py-2`}>
-                      <p className="text-xs font-semibold mb-1">{msg.sender}</p>
-                      <p className="text-sm">{msg.text}</p>
-                    </div>
+                {currentGroup.messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 dark:text-gray-500">
+                    <MessageCircle className="w-12 h-12 mb-2 opacity-50" />
+                    <p className="text-sm">No messages yet</p>
+                    <p className="text-xs">Start the conversation!</p>
                   </div>
-                ))}
+                ) : (
+                  currentGroup.messages.map(msg => (
+                    <div key={msg.id} className={`${msg.sender === currentUser.username ? 'text-right' : 'text-left'} group`}>
+                      <div className={`inline-block max-w-[85%] ${
+                        msg.sender === currentUser.username
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white'
+                      } rounded-2xl px-4 py-2 shadow-sm relative`}>
+                        <p className="text-xs font-semibold mb-1 opacity-80">{msg.sender}</p>
+                        <p className="text-sm break-words">{msg.text}</p>
+                        <p className="text-xs opacity-60 mt-1">
+                          {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                        
+                        {/* Emoji Reactions */}
+                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                          <div className="flex gap-1 mt-2 flex-wrap">
+                            {Object.entries(msg.reactions).map(([emoji, users]) => (
+                              <button
+                                key={emoji}
+                                onClick={() => addReaction(msg.id, emoji)}
+                                className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                                  users.includes(currentUser.username)
+                                    ? 'bg-amber-100 dark:bg-amber-900/30 border-amber-400'
+                                    : 'bg-white/80 dark:bg-gray-600 border-gray-300 dark:border-gray-500'
+                                }`}
+                                title={users.join(', ')}
+                              >
+                                {emoji} {users.length}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Add Reaction Button */}
+                      <div className="relative inline-block">
+                        <button
+                          onClick={() => setEmojiPickerMsg(emojiPickerMsg === msg.id ? null : msg.id)}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-amber-500 p-1"
+                          aria-label="Add reaction"
+                        >
+                          <Smile className="w-4 h-4" />
+                        </button>
+                        {emojiPickerMsg === msg.id && (
+                          <EmojiPicker 
+                            onSelect={(emoji) => addReaction(msg.id, emoji)} 
+                            onClose={() => setEmojiPickerMsg(null)} 
+                          />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
                 <div ref={chatEndRef} />
               </div>
 
-              <div className="p-4 border-t-2 border-amber-200">
+              <div className="p-4 border-t-2 border-amber-200 dark:border-amber-700">
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -531,11 +956,14 @@ export default function HangHive() {
                     onChange={(e) => setMessage(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                     placeholder="Type a message..."
-                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    className="flex-1 px-4 py-2 border-2 border-gray-200 dark:border-gray-600 rounded-lg focus:border-amber-500 focus:outline-none bg-white dark:bg-gray-700 dark:text-white"
+                    aria-label="Chat message input"
                   />
                   <button
                     onClick={sendMessage}
-                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-2 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all"
+                    disabled={!message.trim()}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-2 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50 transform hover:scale-[1.05] active:scale-[0.95]"
+                    aria-label="Send message"
                   >
                     <Send className="w-5 h-5" />
                   </button>
@@ -545,6 +973,25 @@ export default function HangHive() {
           </div>
         </div>
       </main>
+      
+      {/* Custom CSS for animations */}
+      <style jsx>{`
+        @keyframes slide-up {
+          from { transform: translateY(100%); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes fade-in {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        .animate-slide-up { animation: slide-up 0.3s ease-out; }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
+        .animate-bounce-slow { animation: bounce-slow 2s ease-in-out infinite; }
+      `}</style>
     </div>
   );
 }
