@@ -1,0 +1,550 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Users, MapPin, Clock, Plus, Trash2, LogOut, MessageCircle, Send, Check, X, UserPlus, Calendar } from 'lucide-react';
+
+export default function HangHive() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [username, setUsername] = useState('');
+  const [groups, setGroups] = useState([]);
+  const [currentGroup, setCurrentGroup] = useState(null);
+  const [showGroupForm, setShowGroupForm] = useState(false);
+  const [showHangoutForm, setShowHangoutForm] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [message, setMessage] = useState('');
+  const [hangoutForm, setHangoutForm] = useState({
+    title: '',
+    date: '',
+    time: '',
+    location: '',
+    description: ''
+  });
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [currentGroup?.messages]);
+
+  const loadData = async () => {
+    try {
+      const groupsData = await window.storage.get('hang-hive-groups', true);
+      if (groupsData) {
+        setGroups(JSON.parse(groupsData.value));
+      }
+    } catch (error) {
+      setGroups([]);
+    }
+  };
+
+  const saveGroups = async (updatedGroups) => {
+    setGroups(updatedGroups);
+    await window.storage.set('hang-hive-groups', JSON.stringify(updatedGroups), true);
+  };
+
+  const handleLogin = () => {
+    if (username.trim()) {
+      setCurrentUser({ username: username.trim(), id: Date.now() });
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setCurrentGroup(null);
+    setUsername('');
+  };
+
+  const generateCode = () => {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  };
+
+  const createGroup = async () => {
+    if (!newGroupName.trim()) return;
+    
+    const newGroup = {
+      id: Date.now(),
+      name: newGroupName.trim(),
+      code: generateCode(),
+      members: [currentUser],
+      messages: [],
+      hangouts: [],
+      createdBy: currentUser.username
+    };
+
+    const updatedGroups = [...groups, newGroup];
+    await saveGroups(updatedGroups);
+    setNewGroupName('');
+    setShowGroupForm(false);
+  };
+
+  const joinGroup = async () => {
+    if (!joinCode.trim()) return;
+    
+    const group = groups.find(g => g.code === joinCode.toUpperCase());
+    if (group) {
+      const isMember = group.members.some(m => m.username === currentUser.username);
+      if (!isMember) {
+        group.members.push(currentUser);
+        await saveGroups([...groups]);
+      }
+      setCurrentGroup(group);
+      setJoinCode('');
+    } else {
+      alert('Group not found! Check the code and try again.');
+    }
+  };
+
+  const leaveGroup = async () => {
+    const updatedGroup = {
+      ...currentGroup,
+      members: currentGroup.members.filter(m => m.id !== currentUser.id)
+    };
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(null);
+  };
+
+  const sendMessage = async () => {
+    if (!message.trim()) return;
+    
+    const newMessage = {
+      id: Date.now(),
+      text: message.trim(),
+      sender: currentUser.username,
+      timestamp: new Date().toISOString()
+    };
+
+    const updatedGroup = {
+      ...currentGroup,
+      messages: [...currentGroup.messages, newMessage]
+    };
+
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(updatedGroup);
+    setMessage('');
+  };
+
+  const proposeHangout = async () => {
+    if (!hangoutForm.title || !hangoutForm.date || !hangoutForm.time || !hangoutForm.location) {
+      alert('Please fill in all required fields');
+      return;
+    }
+
+    const newHangout = {
+      id: Date.now(),
+      ...hangoutForm,
+      proposedBy: currentUser.username,
+      responses: {}
+    };
+
+    const updatedGroup = {
+      ...currentGroup,
+      hangouts: [...currentGroup.hangouts, newHangout]
+    };
+
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(updatedGroup);
+    setHangoutForm({ title: '', date: '', time: '', location: '', description: '' });
+    setShowHangoutForm(false);
+  };
+
+  const respondToHangout = async (hangoutId, response) => {
+    const updatedHangouts = currentGroup.hangouts.map(h => {
+      if (h.id === hangoutId) {
+        return {
+          ...h,
+          responses: { ...h.responses, [currentUser.username]: response }
+        };
+      }
+      return h;
+    });
+
+    const updatedGroup = { ...currentGroup, hangouts: updatedHangouts };
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(updatedGroup);
+  };
+
+  const deleteHangout = async (hangoutId) => {
+    const updatedGroup = {
+      ...currentGroup,
+      hangouts: currentGroup.hangouts.filter(h => h.id !== hangoutId)
+    };
+    const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
+    await saveGroups(updatedGroups);
+    setCurrentGroup(updatedGroup);
+  };
+
+  // Login Screen
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full border-2 border-amber-200">
+          <div className="text-center mb-8">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <Users className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-3xl font-bold text-gray-800">Hang Hive</h1>
+            <p className="text-gray-600 mt-2">Plan hangouts with your crew</p>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Choose a username
+              </label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none transition-colors"
+                placeholder="Enter your username"
+              />
+            </div>
+            <button
+              onClick={handleLogin}
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Group Selection Screen
+  if (!currentGroup) {
+    const myGroups = groups.filter(g => g.members.some(m => m.username === currentUser.username));
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50">
+        <header className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg">
+          <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Users className="w-8 h-8" />
+              <div>
+                <h1 className="text-2xl font-bold">Hang Hive</h1>
+                <p className="text-sm text-amber-100">Welcome, {currentUser.username}!</p>
+              </div>
+            </div>
+            <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all">
+              <LogOut className="w-4 h-4" />
+              Logout
+            </button>
+          </div>
+        </header>
+
+        <main className="max-w-4xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Create New Group</h2>
+              {!showGroupForm ? (
+                <button
+                  onClick={() => setShowGroupForm(true)}
+                  className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-5 h-5" />
+                  Create Group
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    placeholder="Group name"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={createGroup} className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
+                      Create
+                    </button>
+                    <button onClick={() => setShowGroupForm(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Join Group</h2>
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value)}
+                  placeholder="Enter group code"
+                  className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none uppercase"
+                />
+                <button
+                  onClick={joinGroup}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-blue-600 hover:to-blue-700 transition-all flex items-center justify-center gap-2"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Join Group
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">My Groups</h2>
+            {myGroups.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-lg p-12 text-center border-2 border-dashed border-amber-300">
+                <Users className="w-16 h-16 text-amber-400 mx-auto mb-4" />
+                <p className="text-gray-600">You're not in any groups yet. Create or join one!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {myGroups.map(group => (
+                  <div
+                    key={group.id}
+                    onClick={() => setCurrentGroup(group)}
+                    className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200 hover:shadow-xl transition-all cursor-pointer hover:scale-105"
+                  >
+                    <h3 className="text-xl font-bold text-gray-800 mb-2">{group.name}</h3>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-amber-500" />
+                        {group.members.length} members
+                      </p>
+                      <p className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded inline-block font-mono">
+                        Code: {group.code}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // Group View
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50">
+      <header className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg">
+        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setCurrentGroup(null)} className="p-2 hover:bg-white/20 rounded-lg transition-all">
+              ←
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold">{currentGroup.name}</h1>
+              <p className="text-sm text-amber-100">Code: {currentGroup.code}</p>
+            </div>
+          </div>
+          <button onClick={leaveGroup} className="px-4 py-2 bg-red-500 rounded-lg hover:bg-red-600 transition-all text-sm">
+            Leave Group
+          </button>
+        </div>
+      </header>
+
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Hangouts */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-gray-800">Proposed Hangouts</h2>
+                <button
+                  onClick={() => setShowHangoutForm(!showHangoutForm)}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Propose
+                </button>
+              </div>
+
+              {showHangoutForm && (
+                <div className="mb-6 p-4 bg-amber-50 rounded-lg space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Hangout title *"
+                    value={hangoutForm.title}
+                    onChange={(e) => setHangoutForm({ ...hangoutForm, title: e.target.value })}
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="date"
+                      value={hangoutForm.date}
+                      onChange={(e) => setHangoutForm({ ...hangoutForm, date: e.target.value })}
+                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    />
+                    <input
+                      type="time"
+                      value={hangoutForm.time}
+                      onChange={(e) => setHangoutForm({ ...hangoutForm, time: e.target.value })}
+                      className="px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Location *"
+                    value={hangoutForm.location}
+                    onChange={(e) => setHangoutForm({ ...hangoutForm, location: e.target.value })}
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                  />
+                  <textarea
+                    placeholder="Description"
+                    value={hangoutForm.description}
+                    onChange={(e) => setHangoutForm({ ...hangoutForm, description: e.target.value })}
+                    rows="2"
+                    className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none resize-none"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={proposeHangout} className="flex-1 bg-amber-500 text-white px-4 py-2 rounded-lg hover:bg-amber-600">
+                      Propose Hangout
+                    </button>
+                    <button onClick={() => setShowHangoutForm(false)} className="px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {currentGroup.hangouts.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No hangouts proposed yet</p>
+                ) : (
+                  currentGroup.hangouts.map(hangout => (
+                    <div key={hangout.id} className="border-2 border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h3 className="font-bold text-gray-800">{hangout.title}</h3>
+                          <p className="text-xs text-gray-500">Proposed by {hangout.proposedBy}</p>
+                        </div>
+                        {hangout.proposedBy === currentUser.username && (
+                          <button onClick={() => deleteHangout(hangout.id)} className="text-red-500 hover:bg-red-50 p-2 rounded">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-1 text-sm text-gray-700 mb-3">
+                        <p className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-amber-500" />
+                          {new Date(hangout.date).toLocaleDateString()} at {hangout.time}
+                        </p>
+                        <p className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-amber-500" />
+                          {hangout.location}
+                        </p>
+                        {hangout.description && <p className="text-gray-600 mt-2">{hangout.description}</p>}
+                      </div>
+
+                      <div className="border-t pt-3">
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            onClick={() => respondToHangout(hangout.id, 'yes')}
+                            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                              hangout.responses[currentUser.username] === 'yes'
+                                ? 'bg-green-500 text-white'
+                                : 'bg-green-100 text-green-700 hover:bg-green-200'
+                            }`}
+                          >
+                            ✓ Works for me
+                          </button>
+                          <button
+                            onClick={() => respondToHangout(hangout.id, 'no')}
+                            className={`flex-1 py-2 rounded-lg font-medium transition-all ${
+                              hangout.responses[currentUser.username] === 'no'
+                                ? 'bg-red-500 text-white'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            }`}
+                          >
+                            ✗ Can't make it, sorry 
+                          </button>
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {Object.entries(hangout.responses).map(([user, response]) => (
+                            <span key={user} className="inline-block mr-3">
+                              {user}: {response === 'yes' ? '✓' : '✗'}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column - Members & Chat */}
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-amber-200">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Members ({currentGroup.members.length})</h2>
+              <div className="space-y-2">
+                {currentGroup.members.map(member => (
+                  <div key={member.id} className="flex items-center gap-2 text-gray-700">
+                    <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-400 rounded-full flex items-center justify-center text-white font-bold">
+                      {member.username[0].toUpperCase()}
+                    </div>
+                    <span>{member.username}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-lg border-2 border-amber-200 flex flex-col" style={{ height: '500px' }}>
+              <div className="p-4 border-b-2 border-amber-200">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" />
+                  Group Chat
+                </h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                {currentGroup.messages.map(msg => (
+                  <div key={msg.id} className={`${msg.sender === currentUser.username ? 'text-right' : 'text-left'}`}>
+                    <div className={`inline-block max-w-xs ${
+                      msg.sender === currentUser.username
+                        ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                        : 'bg-gray-200 text-gray-800'
+                    } rounded-lg px-4 py-2`}>
+                      <p className="text-xs font-semibold mb-1">{msg.sender}</p>
+                      <p className="text-sm">{msg.text}</p>
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              <div className="p-4 border-t-2 border-amber-200">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                    placeholder="Type a message..."
+                    className="flex-1 px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-amber-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={sendMessage}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-2 rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all"
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
