@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hang Hive - Plan Hangouts with Your Crew</title>
+  
+  <!-- 
+    CSS STYLESHEETS 
+    - styles.css = Main styles that apply everywhere (colors, buttons, etc.)
+    - login-page.css = Styles just for the login screen
+    - groups-page.css = Styles for the groups list page
+    - hangouts-page.css = Styles for inside a group (hangouts)
+    - chat.css = Styles for the chat section
+  -->
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/login-page.css">
+  <link rel="stylesheet" href="css/groups-page.css">
+  <link rel="stylesheet" href="css/hangouts-page.css">
+  <link rel="stylesheet" href="css/chat.css">
+  
+  <!-- Google Fonts - Makes text look nice -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- 
+    ============================================================
+    LOGIN PAGE - What users see first to enter their username
+    ============================================================
+  -->
+  <div id="login-page" class="page">
+    <!-- Dark mode toggle button in corner -->
+    <button id="dark-mode-toggle-login" class="dark-mode-button">🌙</button>
+    
+    <!-- The white box in the center -->
+    <div id="login-box" class="card">
+      <!-- Logo and title at top -->
+      <div id="login-header">
+        <div id="login-logo">👥</div>
+        <h1 id="app-title">Hang Hive</h1>
+        <p id="app-tagline">Plan hangouts with your crew 🐝</p>
+      </div>
+      
+      <!-- Username input and button -->
+      <div id="login-form">
+        <label for="username-input" class="input-label">Choose a username</label>
+        <input 
+          type="text" 
+          id="username-input" 
+          class="text-input"
+          placeholder="Enter your username"
+        >
+        <button id="login-button" class="primary-button">Get Started 🚀</button>
+      </div>
+      
+      <!-- Small text at bottom -->
+      <p id="login-footer">Create or join groups • Propose hangouts • Chat with friends</p>
+    </div>
+  </div>
+
+  <!-- 
+    ============================================================
+    GROUPS PAGE - Shows all groups the user is in
+    ============================================================
+  -->
+  <div id="groups-page" class="page hidden">
+    <!-- Orange header bar at top -->
+    <header id="groups-header" class="header">
+      <div id="header-left">
+        <div id="header-logo">👥</div>
+        <div id="header-text">
+          <h1 id="header-title">Hang Hive</h1>
+          <p id="welcome-message">Welcome back, <span id="current-username"></span>! 👋</p>
+        </div>
+      </div>
+      <div id="header-right">
+        <button id="dark-mode-toggle-groups" class="icon-button">🌙</button>
+        <button id="logout-button" class="secondary-button">🚪 Logout</button>
+      </div>
+    </header>
+
+    <!-- Main area below header -->
+    <main id="groups-main">
+      <!-- Box to create a new group -->
+      <div id="create-group-card" class="card">
+        <h2 class="card-title">➕ Create New Group</h2>
+        
+        <!-- This form is hidden until you click the button -->
+        <div id="create-group-form" class="hidden">
+          <input type="text" id="new-group-name-input" class="text-input" placeholder="Group name">
+          <div class="button-row">
+            <button id="confirm-create-group-button" class="primary-button">Create</button>
+            <button id="cancel-create-group-button" class="outline-button">Cancel</button>
+          </div>
+        </div>
+        
+        <!-- Button shown by default -->
+        <button id="show-create-group-button" class="primary-button full-width">➕ Create Group</button>
+      </div>
+
+      <!-- Box to join an existing group -->
+      <div id="join-group-card" class="card">
+        <h2 class="card-title">🔗 Join Group</h2>
+        <input type="text" id="join-code-input" class="text-input code-input" placeholder="ABC-1234" maxlength="8">
+        <button id="join-group-button" class="join-button full-width">🔗 Join Group</button>
+      </div>
+
+      <!-- List of groups you're in -->
+      <div id="my-groups-section">
+        <div id="my-groups-header">
+          <h2 id="my-groups-title">My Groups</h2>
+          <input type="text" id="search-groups-input" class="text-input search-input" placeholder="🔍 Search groups...">
+        </div>
+        
+        <!-- Shown when you have no groups -->
+        <div id="no-groups-message" class="empty-state">
+          <span class="empty-icon">👥</span>
+          <p>You're not in any groups yet. Create or join one!</p>
+        </div>
+        
+        <!-- Your groups appear here -->
+        <div id="groups-list"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- 
+    ============================================================
+    HANGOUT PAGE - Inside a specific group
+    ============================================================
+  -->
+  <div id="hangout-page" class="page hidden">
+    <!-- Header with group name -->
+    <header id="hangout-header" class="header">
+      <div id="hangout-header-left">
+        <button id="back-to-groups-button" class="back-button">← Back</button>
+        <div id="group-info">
+          <h1 id="group-name-display"></h1>
+          <p id="group-code-display">Code: <span id="group-code-text"></span>
+            <button id="copy-code-button" class="copy-button">📋</button>
+          </p>
+        </div>
+      </div>
+      <div id="hangout-header-right">
+        <button id="dark-mode-toggle-hangout" class="icon-button">🌙</button>
+        <button id="leave-group-button" class="danger-button">🚪 Leave</button>
+      </div>
+    </header>
+
+    <!-- Main area split into two columns -->
+    <main id="hangout-main">
+      <!-- LEFT COLUMN: Hangouts list -->
+      <section id="hangouts-section">
+        <div id="hangouts-card" class="card">
+          <!-- Header with filters -->
+          <div id="hangouts-header">
+            <h2 class="card-title">📅 Hangouts</h2>
+            <div id="hangouts-controls">
+              <div id="hangout-filters">
+                <button class="filter-button active" data-filter="all">All</button>
+                <button class="filter-button" data-filter="upcoming">Upcoming</button>
+                <button class="filter-button" data-filter="past">Past</button>
+              </div>
+              <button id="propose-hangout-button" class="primary-button">➕ Propose</button>
+            </div>
+          </div>
+
+          <!-- Form to create new hangout (hidden by default) -->
+          <div id="new-hangout-form" class="form-section hidden">
+            <input type="text" id="hangout-title-input" class="text-input" placeholder="Hangout title *">
+            <div class="input-row">
+              <input type="date" id="hangout-date-input" class="text-input">
+              <input type="time" id="hangout-time-input" class="text-input">
+            </div>
+            <input type="text" id="hangout-location-input" class="text-input" placeholder="Location *">
+            <textarea id="hangout-description-input" class="text-input textarea" placeholder="Description (optional)" rows="2"></textarea>
+            <div class="button-row">
+              <button id="submit-hangout-button" class="primary-button">🎉 Propose Hangout</button>
+              <button id="cancel-hangout-button" class="outline-button">Cancel</button>
+            </div>
+          </div>
+
+          <!-- List of hangouts -->
+          <div id="hangouts-list">
+            <div id="no-hangouts-message" class="empty-state">
+              <span class="empty-icon">📅</span>
+              <p>No hangouts proposed yet. Be the first!</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT COLUMN: Members and Chat -->
+      <aside id="sidebar">
+        <!-- Members list -->
+        <div id="members-card" class="card">
+          <h2 class="card-title">👥 Members (<span id="member-count">0</span>)</h2>
+          <div id="members-list"></div>
+        </div>
+
+        <!-- Chat box -->
+        <div id="chat-card" class="card">
+          <h2 class="card-title">💬 Group Chat</h2>
+          <div id="chat-messages">
+            <div id="no-messages" class="empty-state small">
+              <span class="empty-icon">💬</span>
+              <p>No messages yet</p>
+              <p class="small-text">Start the conversation!</p>
+            </div>
+          </div>
+          <div id="chat-input-area">
+            <input type="text" id="chat-input" class="text-input" placeholder="Type a message...">
+            <button id="send-message-button" class="send-button">📤</button>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- 
+    ============================================================
+    TOAST NOTIFICATIONS - Pop-up messages at bottom of screen
+    ============================================================
+  -->
+  <div id="toast-container"></div>
+
+  <!-- 
+    ============================================================
+    EMOJI PICKER - For adding reactions to chat messages
+    ============================================================
+  -->
+  <div id="emoji-picker" class="hidden">
+    <button class="emoji-option" data-emoji="👍">👍</button>
+    <button class="emoji-option" data-emoji="❤️">❤️</button>
+    <button class="emoji-option" data-emoji="😂">😂</button>
+    <button class="emoji-option" data-emoji="😮">😮</button>
+    <button class="emoji-option" data-emoji="😢">😢</button>
+    <button class="emoji-option" data-emoji="🎉">🎉</button>
+    <button class="emoji-option" data-emoji="🔥">🔥</button>
+    <button class="emoji-option" data-emoji="👏">👏</button>
+  </div>
+
+  <!-- 
+    ============================================================
+    JAVASCRIPT FILES - Load in order!
+    ============================================================
+    1. data.js - Saves and loads data from browser storage
+    2. helpers.js - Useful functions used everywhere
+    3. toast.js - Shows notification pop-ups
+    4. login.js - Handles the login page
+    5. groups.js - Handles creating/joining groups
+    6. hangouts.js - Handles proposing and responding to hangouts
+    7. chat.js - Handles the group chat
+    8. app.js - Starts the app and connects everything
+  -->
+  <script src="js/data.js"></script>
+  <script src="js/helpers.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/login.js"></script>
+  <script src="js/groups.js"></script>
+  <script src="js/hangouts.js"></script>
+  <script src="js/chat.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+/*
+  ============================================================
+  GROUPS PAGE STYLES - groups-page.css
+  ============================================================
+  Styles for the page that shows all your groups
+*/
+
+/* Header section */
+#groups-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-medium);
+}
+
+#header-logo {
+  font-size: 2rem;
+  background: rgba(255, 255, 255, 0.2);
+  padding: var(--spacing-small);
+  border-radius: var(--radius-medium);
+}
+
+#header-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+#welcome-message {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+#header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+/* Main content area */
+#groups-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: var(--spacing-large);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-large);
+}
+
+/* Create and Join cards sit side by side */
+#create-group-card,
+#join-group-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+#create-group-card:hover,
+#join-group-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-large);
+}
+
+/* Create group form */
+#create-group-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small);
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* My Groups section spans full width */
+#my-groups-section {
+  grid-column: 1 / -1;
+}
+
+#my-groups-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-medium);
+}
+
+#my-groups-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+body.dark-mode #my-groups-title {
+  color: var(--color-dark-text);
+}
+
+/* Search input */
+.search-input {
+  max-width: 250px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+}
+
+/* Groups list grid */
+#groups-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--spacing-medium);
+}
+
+/* Individual group card */
+.group-card {
+  background: var(--color-card);
+  border: 2px solid var(--color-primary-light);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-large);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.group-card:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-large);
+  border-color: var(--color-primary);
+}
+
+body.dark-mode .group-card {
+  background: var(--color-dark-card);
+  border-color: var(--color-dark-border);
+}
+
+body.dark-mode .group-card:hover {
+  border-color: var(--color-primary);
+}
+
+.group-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-small);
+}
+
+.group-card-name,
+.group-name {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+}
+
+body.dark-mode .group-card-name,
+body.dark-mode .group-name {
+  color: var(--color-dark-text);
+}
+
+.group-card-badge {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-small);
+  font-weight: 500;
+}
+
+body.dark-mode .group-card-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-primary);
+}
+
+.group-card-info {
+  font-size: 0.9rem;
+  color: var(--color-text-medium);
+}
+
+body.dark-mode .group-card-info {
+  color: var(--color-text-light);
+}
+
+.group-card-members {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  margin-bottom: var(--spacing-small);
+}
+
+.group-card-code {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  background: var(--color-border);
+  padding: 4px 8px;
+  border-radius: var(--radius-small);
+  font-family: monospace;
+  font-size: 0.8rem;
+}
+
+body.dark-mode .group-card-code {
+  background: var(--color-dark-border);
+}
+
+.group-card-code .copy-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.group-card-code .copy-button:hover {
+  opacity: 1;
+}
+
+/* Group code badge (used by JavaScript) */
+.group-code {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: var(--radius-small);
+  font-weight: 600;
+  font-family: monospace;
+}
+
+body.dark-mode .group-code {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-primary);
+}
+
+/* Group card stats row */
+.group-card-stats {
+  display: flex;
+  gap: var(--spacing-medium);
+  font-size: 0.9rem;
+  color: var(--color-text-medium);
+  margin: var(--spacing-small) 0;
+}
+
+body.dark-mode .group-card-stats {
+  color: var(--color-text-light);
+}
+
+/* Group card actions */
+.group-card-actions {
+  display: flex;
+  gap: var(--spacing-small);
+  margin-top: var(--spacing-medium);
+}
+
+.group-card-actions .secondary-button,
+.group-card-actions .danger-button {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+}
+
+/* Small button variant */
+.small {
+  font-size: 0.8rem !important;
+  padding: 6px 12px !important;
+}
+
+.group-card-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-top: var(--spacing-small);
+}
+
+.group-card:hover .group-card-hint {
+  opacity: 1;
+}
+
+/* Empty state for no groups */
+#no-groups-message {
+  grid-column: 1 / -1;
+  background: var(--color-card);
+  border: 2px dashed var(--color-primary-light);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-large) * 2;
+}
+
+body.dark-mode #no-groups-message {
+  background: var(--color-dark-card);
+  border-color: var(--color-dark-border);
+}
+
+/* Responsive - stack on mobile */
+@media (max-width: 768px) {
+  #groups-main {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-medium);
+  }
+  
+  #my-groups-header {
+    flex-direction: column;
+    gap: var(--spacing-small);
+    align-items: stretch;
+  }
+  
+  .search-input {
+    max-width: 100%;
+  }
+}

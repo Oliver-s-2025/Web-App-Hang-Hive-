@@ -98,12 +98,12 @@ export default function HangHive() {
     }
   }, [currentGroup?.messages]);
 
-  const loadData = async () => {
+  const loadData = () => {
     setLoading(true);
     try {
-      const groupsData = await window.storage.get('hang-hive-groups', true);
+      const groupsData = localStorage.getItem('hang-hive-groups');
       if (groupsData) {
-        setGroups(JSON.parse(groupsData.value));
+        setGroups(JSON.parse(groupsData));
       }
     } catch (error) {
       setGroups([]);
@@ -111,9 +111,9 @@ export default function HangHive() {
     setLoading(false);
   };
 
-  const saveGroups = async (updatedGroups) => {
+  const saveGroups = (updatedGroups) => {
     setGroups(updatedGroups);
-    await window.storage.set('hang-hive-groups', JSON.stringify(updatedGroups), true);
+    localStorage.setItem('hang-hive-groups', JSON.stringify(updatedGroups));
   };
 
   const copyToClipboard = async (text) => {
@@ -143,7 +143,7 @@ export default function HangHive() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   };
 
-  const createGroup = async () => {
+  const createGroup = () => {
     if (!newGroupName.trim()) return;
     setLoading(true);
     
@@ -159,14 +159,14 @@ export default function HangHive() {
     };
 
     const updatedGroups = [...groups, newGroup];
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setNewGroupName('');
     setShowGroupForm(false);
     setLoading(false);
     showToast(`Group "${newGroup.name}" created! Share code: ${newGroup.code}`, 'success');
   };
 
-  const joinGroup = async () => {
+  const joinGroup = () => {
     if (!joinCode.trim()) return;
     setLoading(true);
     
@@ -175,7 +175,7 @@ export default function HangHive() {
       const isMember = group.members.some(m => m.username === currentUser.username);
       if (!isMember) {
         group.members.push(currentUser);
-        await saveGroups([...groups]);
+        saveGroups([...groups]);
         showToast(`Welcome to ${group.name}!`, 'success');
       } else {
         showToast('You\'re already a member!', 'info');
@@ -188,19 +188,19 @@ export default function HangHive() {
     setLoading(false);
   };
 
-  const leaveGroup = async () => {
+  const leaveGroup = () => {
     const groupName = currentGroup.name;
     const updatedGroup = {
       ...currentGroup,
       members: currentGroup.members.filter(m => m.id !== currentUser.id)
     };
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(null);
     showToast(`You left ${groupName}`, 'info');
   };
 
-  const sendMessage = async () => {
+  const sendMessage = () => {
     if (!message.trim()) return;
     
     const newMessage = {
@@ -217,12 +217,12 @@ export default function HangHive() {
     };
 
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
     setMessage('');
   };
 
-  const addReaction = async (messageId, emoji) => {
+  const addReaction = (messageId, emoji) => {
     const updatedMessages = currentGroup.messages.map(msg => {
       if (msg.id === messageId) {
         const reactions = { ...msg.reactions };
@@ -240,11 +240,11 @@ export default function HangHive() {
 
     const updatedGroup = { ...currentGroup, messages: updatedMessages };
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
   };
 
-  const proposeHangout = async () => {
+  const proposeHangout = () => {
     if (!hangoutForm.title || !hangoutForm.date || !hangoutForm.time || !hangoutForm.location) {
       showToast('Please fill in all required fields', 'error');
       return;
@@ -265,7 +265,7 @@ export default function HangHive() {
     };
 
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
     setHangoutForm({ title: '', date: '', time: '', location: '', description: '' });
     setShowHangoutForm(false);
@@ -273,7 +273,7 @@ export default function HangHive() {
     showToast('Hangout proposed! 🎉', 'success');
   };
 
-  const respondToHangout = async (hangoutId, response) => {
+  const respondToHangout = (hangoutId, response) => {
     const updatedHangouts = currentGroup.hangouts.map(h => {
       if (h.id === hangoutId) {
         return {
@@ -286,17 +286,17 @@ export default function HangHive() {
 
     const updatedGroup = { ...currentGroup, hangouts: updatedHangouts };
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
   };
 
-  const deleteHangout = async (hangoutId) => {
+  const deleteHangout = (hangoutId) => {
     const updatedGroup = {
       ...currentGroup,
       hangouts: currentGroup.hangouts.filter(h => h.id !== hangoutId)
     };
     const updatedGroups = groups.map(g => g.id === currentGroup.id ? updatedGroup : g);
-    await saveGroups(updatedGroups);
+    saveGroups(updatedGroups);
     setCurrentGroup(updatedGroup);
     showToast('Hangout deleted', 'info');
   };

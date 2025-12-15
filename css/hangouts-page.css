@@ -1,0 +1,558 @@
+/*
+  ============================================================
+  HANGOUTS PAGE STYLES - hangouts-page.css
+  ============================================================
+  Styles for inside a group - the hangouts list and sidebar
+*/
+
+/* Hangout page header */
+#hangout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+#hangout-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-medium);
+}
+
+#hangout-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+/* Back button */
+.back-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: var(--radius-medium);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Group info in header */
+#group-info h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+#group-code-display {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+.copy-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.8;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.copy-button:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Main layout - two columns */
+#hangout-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-large);
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-large);
+}
+
+/* Hangouts section (left column) */
+#hangouts-section {
+  display: flex;
+  flex-direction: column;
+}
+
+#hangouts-card {
+  flex: 1;
+}
+
+#hangouts-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-medium);
+  margin-bottom: var(--spacing-medium);
+}
+
+#hangouts-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  flex-wrap: wrap;
+}
+
+/* Filter buttons */
+#hangout-filters {
+  display: flex;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  overflow: hidden;
+}
+
+body.dark-mode #hangout-filters {
+  border-color: var(--color-dark-border);
+}
+
+.filter-button {
+  background: white;
+  border: none;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-text-medium);
+}
+
+body.dark-mode .filter-button {
+  background: var(--color-dark-card);
+  color: var(--color-text-light);
+}
+
+.filter-button:hover {
+  background: var(--color-border);
+}
+
+body.dark-mode .filter-button:hover {
+  background: var(--color-dark-border);
+}
+
+.filter-button.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+/* Hangouts list */
+#hangouts-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+}
+
+/* Individual hangout card */
+.hangout-card {
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--spacing-medium);
+  transition: all 0.2s;
+}
+
+body.dark-mode .hangout-card {
+  border-color: var(--color-dark-border);
+}
+
+.hangout-card:hover {
+  box-shadow: var(--shadow-medium);
+}
+
+/* Hangout status badges */
+.hangout-card.status-past {
+  opacity: 0.7;
+}
+
+.hangout-card.status-ongoing {
+  border-color: var(--color-success);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.hangout-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-small);
+}
+
+.hangout-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  flex-wrap: wrap;
+}
+
+body.dark-mode .hangout-title {
+  color: var(--color-dark-text);
+}
+
+/* Status badges */
+.status-badge {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.status-badge.upcoming {
+  background: var(--color-secondary);
+  color: white;
+}
+
+.status-badge.soon {
+  background: var(--color-primary);
+  color: white;
+}
+
+.status-badge.ongoing {
+  background: var(--color-success);
+  color: white;
+  animation: pulse 2s infinite;
+}
+
+.status-badge.past {
+  background: var(--color-text-light);
+  color: white;
+}
+
+.status-badge.confirmed {
+  background: var(--color-success);
+  color: white;
+}
+
+.status-badge.pending {
+  background: var(--color-warning);
+  color: white;
+}
+
+.status-badge.cancelled {
+  background: var(--color-danger);
+  color: white;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.hangout-proposer {
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+  margin-top: 4px;
+}
+
+/* Delete button */
+.delete-hangout-button {
+  background: none;
+  border: none;
+  color: var(--color-danger);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: var(--radius-small);
+  transition: background 0.2s;
+}
+
+.delete-hangout-button:hover {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Hangout details */
+.hangout-details {
+  margin: var(--spacing-small) 0;
+  font-size: 0.9rem;
+  color: var(--color-text-medium);
+}
+
+body.dark-mode .hangout-details {
+  color: var(--color-text-light);
+}
+
+.hangout-detail {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  margin-bottom: 4px;
+}
+
+.hangout-detail-icon {
+  color: var(--color-primary);
+}
+
+.hangout-description {
+  margin-top: var(--spacing-small);
+  padding-left: var(--spacing-large);
+  color: var(--color-text-light);
+}
+
+/* Response summary */
+.response-summary {
+  display: flex;
+  gap: var(--spacing-medium);
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+  margin: var(--spacing-small) 0;
+}
+
+.response-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.response-count.yes { color: var(--color-success); }
+.response-count.maybe { color: var(--color-warning); }
+.response-count.no { color: var(--color-danger); }
+
+/* Response counts row */
+.response-counts {
+  display: flex;
+  gap: var(--spacing-medium);
+  font-size: 0.85rem;
+  margin: var(--spacing-small) 0;
+}
+
+.response-counts .count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.response-counts .count.going { color: var(--color-success); }
+.response-counts .count.maybe { color: var(--color-warning); }
+.response-counts .count.not-going { color: var(--color-danger); }
+
+/* Proposed by text */
+.proposed-by {
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+  font-style: italic;
+  margin-top: var(--spacing-small);
+}
+
+/* Hangout header with title and status */
+.hangout-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-small);
+}
+
+/* Delete hangout button */
+.delete-hangout {
+  margin-top: var(--spacing-small);
+}
+
+/* Response buttons */
+.response-buttons {
+  display: flex;
+  gap: var(--spacing-small);
+  padding-top: var(--spacing-small);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--spacing-small);
+}
+
+body.dark-mode .response-buttons {
+  border-color: var(--color-dark-border);
+}
+
+.response-button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius-medium);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.response-button:hover {
+  transform: scale(1.02);
+}
+
+.response-button:active {
+  transform: scale(0.98);
+}
+
+.response-button.yes,
+.response-button.going {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--color-success);
+}
+
+.response-button.yes.selected,
+.response-button.going.selected {
+  background: var(--color-success);
+  color: white;
+}
+
+.response-button.maybe {
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--color-warning);
+}
+
+.response-button.maybe.selected {
+  background: var(--color-warning);
+  color: white;
+}
+
+.response-button.no,
+.response-button.not-going {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-danger);
+}
+
+.response-button.no.selected,
+.response-button.not-going.selected {
+  background: var(--color-danger);
+  color: white;
+}
+
+/* Response list (who responded what) */
+.response-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-small);
+  margin-top: var(--spacing-small);
+  font-size: 0.75rem;
+}
+
+.response-tag {
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+.response-tag.yes {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--color-success);
+}
+
+.response-tag.maybe {
+  background: rgba(234, 179, 8, 0.2);
+  color: var(--color-warning);
+}
+
+.response-tag.no {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--color-danger);
+}
+
+/* Sidebar (right column) */
+#sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-medium);
+}
+
+/* Members card */
+#members-card {
+  max-height: 300px;
+}
+
+#members-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  padding: var(--spacing-small);
+  border-radius: var(--radius-small);
+  transition: background 0.2s;
+}
+
+.member-item:hover {
+  background: var(--color-border);
+}
+
+body.dark-mode .member-item:hover {
+  background: var(--color-dark-border);
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+  border-radius: var(--radius-round);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.member-name {
+  font-weight: 500;
+  color: var(--color-text-dark);
+}
+
+body.dark-mode .member-name {
+  color: var(--color-dark-text);
+}
+
+.member-badge {
+  font-size: 0.7rem;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-left: var(--spacing-small);
+}
+
+body.dark-mode .member-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-primary);
+}
+
+.member-you {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  margin-left: var(--spacing-small);
+}
+
+/* Current user highlight */
+.member-item.current-user {
+  background: var(--color-primary-light);
+}
+
+body.dark-mode .member-item.current-user {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* Creator badge */
+.creator-badge {
+  margin-left: auto;
+}
+
+/* Responsive - stack on mobile */
+@media (max-width: 900px) {
+  #hangout-main {
+    grid-template-columns: 1fr;
+  }
+  
+  #sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  
+  #members-card,
+  #chat-card {
+    flex: 1;
+    min-width: 280px;
+  }
+}

@@ -1,0 +1,519 @@
+/*
+  ============================================================
+  MAIN STYLES - styles.css
+  ============================================================
+  This file contains styles that are used EVERYWHERE in the app.
+  Things like colors, fonts, buttons, and common elements.
+  
+  HOW TO CHANGE COLORS:
+  - Look for the :root section below
+  - Change the color values there to change colors across the whole app!
+*/
+
+/* 
+  ==================== COLOR VARIABLES ====================
+  Change these to change colors everywhere!
+*/
+:root {
+  /* Main brand colors (the orange/amber theme) */
+  --color-primary: #f59e0b;        /* Main orange color */
+  --color-primary-dark: #d97706;   /* Darker orange for hover */
+  --color-primary-light: #fef3c7; /* Very light orange for backgrounds */
+  
+  /* Other colors */
+  --color-secondary: #3b82f6;      /* Blue color (for join button) */
+  --color-secondary-dark: #2563eb; /* Darker blue for hover */
+  
+  --color-success: #22c55e;        /* Green (for "I'm in!" button) */
+  --color-warning: #eab308;        /* Yellow (for "Maybe" button) */
+  --color-danger: #ef4444;         /* Red (for "Can't" and delete) */
+  
+  /* Text colors */
+  --color-text-dark: #1f2937;      /* Dark gray text */
+  --color-text-medium: #6b7280;    /* Medium gray text */
+  --color-text-light: #9ca3af;     /* Light gray text */
+  
+  /* Background colors */
+  --color-background: #fffbeb;     /* Page background (light yellow) */
+  --color-card: #ffffff;           /* White cards */
+  --color-border: #e5e7eb;         /* Gray borders */
+  
+  /* Dark mode colors */
+  --color-dark-background: #111827;
+  --color-dark-card: #1f2937;
+  --color-dark-border: #374151;
+  --color-dark-text: #f9fafb;
+  
+  /* Spacing (padding and margins) */
+  --spacing-small: 8px;
+  --spacing-medium: 16px;
+  --spacing-large: 24px;
+  
+  /* Border radius (how rounded corners are) */
+  --radius-small: 8px;
+  --radius-medium: 12px;
+  --radius-large: 16px;
+  --radius-round: 50%;
+  
+  /* Shadows */
+  --shadow-small: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --shadow-large: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* 
+  ==================== BASIC RESET ====================
+  Makes all browsers behave the same way
+*/
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, var(--color-primary-light), #fef9c3, #ffedd5);
+  min-height: 100vh;
+  color: var(--color-text-dark);
+}
+
+/* 
+  ==================== DARK MODE ====================
+  When body has "dark-mode" class, these styles override the defaults
+*/
+body.dark-mode {
+  background: var(--color-dark-background);
+  color: var(--color-dark-text);
+}
+
+body.dark-mode .card {
+  background: var(--color-dark-card);
+  border-color: var(--color-dark-border);
+}
+
+body.dark-mode .text-input {
+  background: var(--color-dark-card);
+  border-color: var(--color-dark-border);
+  color: var(--color-dark-text);
+}
+
+body.dark-mode .header {
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+}
+
+/* 
+  ==================== PAGE LAYOUTS ====================
+*/
+.page {
+  min-height: 100vh;
+}
+
+.page.hidden {
+  display: none !important;
+}
+
+/* 
+  ==================== CARDS (White boxes) ====================
+*/
+.card {
+  background: var(--color-card);
+  border: 2px solid var(--color-primary-light);
+  border-radius: var(--radius-large);
+  padding: var(--spacing-large);
+  box-shadow: var(--shadow-medium);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-dark);
+  margin-bottom: var(--spacing-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+body.dark-mode .card-title {
+  color: var(--color-dark-text);
+}
+
+/* 
+  ==================== BUTTONS ====================
+*/
+
+/* Primary Button - Orange, main action */
+.primary-button {
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-medium);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-small);
+}
+
+.primary-button:hover {
+  transform: scale(1.02);
+  box-shadow: var(--shadow-medium);
+}
+
+.primary-button:active {
+  transform: scale(0.98);
+}
+
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary Button - White with border */
+.secondary-button {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-medium);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+.secondary-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Secondary button outside header - needs different colors */
+.card .secondary-button,
+.group-card .secondary-button {
+  background: var(--color-border);
+  color: var(--color-text-dark);
+}
+
+.card .secondary-button:hover,
+.group-card .secondary-button:hover {
+  background: var(--color-text-light);
+  color: white;
+}
+
+body.dark-mode .card .secondary-button,
+body.dark-mode .group-card .secondary-button {
+  background: var(--color-dark-border);
+  color: var(--color-dark-text);
+}
+
+body.dark-mode .card .secondary-button:hover,
+body.dark-mode .group-card .secondary-button:hover {
+  background: var(--color-text-medium);
+}
+
+/* Outline Button - Just a border, no fill */
+.outline-button {
+  background: transparent;
+  color: var(--color-text-medium);
+  border: 2px solid var(--color-border);
+  padding: 10px 20px;
+  border-radius: var(--radius-medium);
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.outline-button:hover {
+  background: var(--color-border);
+}
+
+body.dark-mode .outline-button {
+  border-color: var(--color-dark-border);
+  color: var(--color-dark-text);
+}
+
+body.dark-mode .outline-button:hover {
+  background: var(--color-dark-border);
+}
+
+/* Danger Button - Red, for leaving/deleting */
+.danger-button {
+  background: var(--color-danger);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-medium);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-small);
+}
+
+.danger-button:hover {
+  background: #dc2626;
+}
+
+/* Icon Button - Just an icon, circular */
+.icon-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-round);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* Full Width Button */
+.full-width {
+  width: 100%;
+}
+
+/* Join Button - Blue */
+.join-button {
+  background: linear-gradient(to right, var(--color-secondary), var(--color-secondary-dark));
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: var(--radius-medium);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-small);
+}
+
+.join-button:hover {
+  transform: scale(1.02);
+}
+
+.join-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 
+  ==================== INPUT FIELDS ====================
+*/
+.text-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.2s ease;
+  background: white;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.text-input::placeholder {
+  color: var(--color-text-light);
+}
+
+.textarea {
+  resize: none;
+  min-height: 60px;
+}
+
+.input-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-medium);
+  margin-bottom: var(--spacing-small);
+}
+
+body.dark-mode .input-label {
+  color: var(--color-text-light);
+}
+
+/* Code input - for group codes */
+.code-input {
+  text-align: center;
+  font-family: monospace;
+  font-size: 1.2rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* 
+  ==================== HEADER (Top navigation bar) ====================
+*/
+.header {
+  background: linear-gradient(to right, var(--color-primary), #ea580c);
+  color: white;
+  padding: var(--spacing-medium) var(--spacing-large);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-medium);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* 
+  ==================== EMPTY STATES ====================
+  Shown when there's no data (no groups, no messages, etc.)
+*/
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-large) * 2;
+  color: var(--color-text-medium);
+}
+
+.empty-state .empty-icon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: var(--spacing-medium);
+  opacity: 0.5;
+}
+
+.empty-state.small .empty-icon {
+  font-size: 2.5rem;
+}
+
+.empty-state .small-text {
+  font-size: 0.8rem;
+  color: var(--color-text-light);
+}
+
+body.dark-mode .empty-state {
+  color: var(--color-text-light);
+}
+
+/* 
+  ==================== UTILITY CLASSES ====================
+*/
+.hidden {
+  display: none !important;
+}
+
+.button-row {
+  display: flex;
+  gap: var(--spacing-small);
+  margin-top: var(--spacing-medium);
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-small);
+}
+
+.form-section {
+  background: var(--color-primary-light);
+  padding: var(--spacing-medium);
+  border-radius: var(--radius-medium);
+  margin-bottom: var(--spacing-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small);
+}
+
+body.dark-mode .form-section {
+  background: var(--color-dark-border);
+}
+
+/* 
+  ==================== ANIMATIONS ====================
+*/
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-bounce {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+/* 
+  ==================== RESPONSIVE DESIGN ====================
+  Makes the app look good on phones too
+*/
+@media (max-width: 768px) {
+  .header {
+    padding: var(--spacing-small) var(--spacing-medium);
+  }
+  
+  #header-title {
+    font-size: 1.2rem;
+  }
+  
+  #welcome-message {
+    font-size: 0.8rem;
+  }
+}

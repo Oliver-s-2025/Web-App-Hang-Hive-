@@ -1,0 +1,291 @@
+/*
+  ============================================================
+  CHAT STYLES - chat.css
+  ============================================================
+  Styles for the group chat feature
+*/
+
+/* Chat card container */
+#chat-card {
+  display: flex;
+  flex-direction: column;
+  height: 500px;
+}
+
+#chat-card .card-title {
+  flex-shrink: 0;
+}
+
+/* Chat messages area */
+#chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-small);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small);
+  background: var(--color-border);
+  border-radius: var(--radius-medium);
+  margin-bottom: var(--spacing-small);
+}
+
+body.dark-mode #chat-messages {
+  background: var(--color-dark-background);
+}
+
+/* Empty state when no messages */
+#chat-messages .empty-state {
+  margin: auto;
+  padding: var(--spacing-large);
+}
+
+/* Individual message */
+.chat-message {
+  max-width: 85%;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* Your own messages - align right */
+.chat-message.sent {
+  align-self: flex-end;
+}
+
+/* Other people's messages - align left */
+.chat-message.received {
+  align-self: flex-start;
+}
+
+/* Message bubble */
+.message-bubble {
+  padding: var(--spacing-small) var(--spacing-medium);
+  border-radius: var(--radius-large);
+  position: relative;
+}
+
+.chat-message.sent .message-bubble {
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-message.received .message-bubble {
+  background: var(--color-card);
+  color: var(--color-text-dark);
+  border-bottom-left-radius: 4px;
+}
+
+body.dark-mode .chat-message.received .message-bubble {
+  background: var(--color-dark-card);
+  color: var(--color-dark-text);
+}
+
+/* Sender name */
+.message-sender {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+
+/* Message text */
+.message-text {
+  font-size: 0.9rem;
+  word-wrap: break-word;
+}
+
+/* Timestamp */
+.message-time {
+  font-size: 0.65rem;
+  opacity: 0.6;
+  margin-top: 4px;
+}
+
+/* Emoji reactions on messages */
+.message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: var(--spacing-small);
+}
+
+.reaction-badge {
+  background: rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chat-message.received .reaction-badge {
+  background: var(--color-border);
+  border-color: var(--color-border);
+}
+
+body.dark-mode .chat-message.received .reaction-badge {
+  background: var(--color-dark-border);
+  border-color: var(--color-dark-border);
+}
+
+.reaction-badge:hover {
+  transform: scale(1.1);
+}
+
+.reaction-badge.user-reacted {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary);
+}
+
+/* Add reaction button */
+.add-reaction-button {
+  opacity: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  transition: opacity 0.2s;
+}
+
+.chat-message:hover .add-reaction-button {
+  opacity: 1;
+}
+
+.add-reaction-button:hover {
+  transform: scale(1.2);
+}
+
+/* Chat input area */
+#chat-input-area {
+  display: flex;
+  gap: var(--spacing-small);
+  flex-shrink: 0;
+}
+
+#chat-input {
+  flex: 1;
+}
+
+/* Send button */
+.send-button {
+  background: linear-gradient(to right, var(--color-primary), var(--color-primary-dark));
+  color: white;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-medium);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-button:hover {
+  transform: scale(1.05);
+}
+
+.send-button:active {
+  transform: scale(0.95);
+}
+
+.send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Emoji picker popup */
+#emoji-picker {
+  position: fixed;
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-medium);
+  padding: var(--spacing-small);
+  display: flex;
+  gap: 4px;
+  box-shadow: var(--shadow-large);
+  z-index: 1000;
+}
+
+body.dark-mode #emoji-picker {
+  background: var(--color-dark-card);
+  border-color: var(--color-dark-border);
+}
+
+.emoji-option {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  padding: 4px;
+  cursor: pointer;
+  border-radius: var(--radius-small);
+  transition: all 0.2s;
+}
+
+.emoji-option:hover {
+  background: var(--color-border);
+  transform: scale(1.2);
+}
+
+body.dark-mode .emoji-option:hover {
+  background: var(--color-dark-border);
+}
+
+/* Toast notifications */
+#toast-container {
+  position: fixed;
+  bottom: var(--spacing-large);
+  right: var(--spacing-large);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-small);
+}
+
+.toast {
+  padding: var(--spacing-medium) var(--spacing-large);
+  border-radius: var(--radius-medium);
+  color: white;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-small);
+  animation: slideUp 0.3s ease-out;
+  box-shadow: var(--shadow-large);
+}
+
+.toast.success {
+  background: var(--color-success);
+}
+
+.toast.error {
+  background: var(--color-danger);
+}
+
+.toast.info {
+  background: var(--color-secondary);
+}
+
+/* Scrollbar styling */
+#chat-messages::-webkit-scrollbar,
+#members-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+#chat-messages::-webkit-scrollbar-track,
+#members-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#chat-messages::-webkit-scrollbar-thumb,
+#members-list::-webkit-scrollbar-thumb {
+  background: var(--color-text-light);
+  border-radius: 3px;
+}
+
+#chat-messages::-webkit-scrollbar-thumb:hover,
+#members-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-medium);
+}
