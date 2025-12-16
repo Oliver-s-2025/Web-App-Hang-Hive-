@@ -242,26 +242,11 @@
 
   <!-- 
     ============================================================
-    JAVASCRIPT FILES - Load in order!
+    JAVASCRIPT - Using Vite with ES Modules
     ============================================================
-    1. api.js - Handles communication with the server (defines isServerAvailable)
-    2. data.js - Saves and loads data from browser storage
-    3. helpers.js - Useful functions used everywhere
-    4. toast.js - Shows notification pop-ups
-    5. login.js - Handles the login page
-    6. groups.js - Handles creating/joining groups
-    7. hangouts.js - Handles proposing and responding to hangouts
-    8. chat.js - Handles the group chat
-    9. app.js - Starts the app and connects everything
+    main.js is the single entry point that imports everything.
+    Vite bundles all the code including Firebase.
   -->
-  <script src="js/api.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/helpers.js"></script>
-  <script src="js/toast.js"></script>
-  <script src="js/login.js"></script>
-  <script src="js/groups.js"></script>
-  <script src="js/hangouts.js"></script>
-  <script src="js/chat.js"></script>
-  <script src="js/app.js"></script>
+  <script type="module" src="/js/main.js"></script>
 </body>
 </html>
