@@ -9,7 +9,7 @@
  * Handle when someone clicks the login button
  * Gets the username from the input and logs them in
  */
-function handleLogin() {
+async function handleLogin() {
   // Get the username they typed
   const usernameInput = document.getElementById('username-input');
   const username = usernameInput.value.trim();
@@ -20,26 +20,41 @@ function handleLogin() {
     return;
   }
   
-  // Create the user object
-  const user = {
-    username: username,
-    id: generateId()
-  };
+  // Show loading state
+  const loginButton = document.getElementById('login-button');
+  const originalText = loginButton.textContent;
+  loginButton.textContent = 'Logging in...';
+  loginButton.disabled = true;
   
-  // Save to localStorage
-  saveUser(user);
-  
-  // Update the app state
-  currentUser = user;
-  
-  // Show welcome message
-  showToast(`Welcome, ${username}!`, 'success');
-  
-  // Clear the input
-  usernameInput.value = '';
-  
-  // Go to the groups page
-  showPage('groups');
+  try {
+    // Login via API
+    const user = await apiLogin(username);
+    
+    // Save to localStorage
+    saveUser(user);
+    
+    // Update the app state
+    currentUser = user;
+    
+    // Load groups from server
+    groups = await loadGroupsFromServer();
+    
+    // Show welcome message
+    showToast(`Welcome, ${user.username}!`, 'success');
+    
+    // Clear the input
+    usernameInput.value = '';
+    
+    // Go to the groups page
+    showPage('groups');
+  } catch (error) {
+    showToast('Could not connect to server. Please try again.', 'error');
+    console.error('Login error:', error);
+  } finally {
+    // Reset button
+    loginButton.textContent = originalText;
+    loginButton.disabled = false;
+  }
 }
 
 /**
@@ -52,6 +67,7 @@ function handleLogout() {
   // Clear the app state
   currentUser = null;
   currentGroup = null;
+  groups = [];
   
   // Show message
   showToast('Logged out successfully', 'info');

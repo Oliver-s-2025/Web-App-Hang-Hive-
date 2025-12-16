@@ -11,7 +11,7 @@ let currentReactionMessageId = null;
 /**
  * Send a new message in the group chat
  */
-function sendMessage() {
+async function sendMessage() {
   // Get the message text
   const input = document.getElementById('chat-input');
   const text = input.value.trim();
@@ -21,7 +21,32 @@ function sendMessage() {
     return;
   }
   
-  // Create the message object
+  // Clear the input immediately for better UX
+  input.value = '';
+  
+  try {
+    // Try API first
+    if (isServerAvailable) {
+      const result = await API.sendMessage(currentGroup.id, text, currentUser.username);
+      if (result.success) {
+        // Update local data with server response
+        currentGroup.messages = result.messages;
+        // Also update in groups array
+        const groupIndex = groups.findIndex(g => g.id === currentGroup.id);
+        if (groupIndex !== -1) {
+          groups[groupIndex].messages = result.messages;
+        }
+        saveGroups(groups);
+        renderMessages();
+        scrollChatToBottom();
+        return;
+      }
+    }
+  } catch (error) {
+    console.log('Server unavailable, using local storage');
+  }
+  
+  // Fallback: Create locally
   const newMessage = {
     id: generateId(),
     text: text,
@@ -39,9 +64,6 @@ function sendMessage() {
   // Save changes
   saveGroups(groups);
   
-  // Clear the input
-  input.value = '';
-  
   // Refresh the chat display
   renderMessages();
   
@@ -52,11 +74,29 @@ function sendMessage() {
 /**
  * Add a reaction to a message
  */
-function addReaction(messageId, emoji) {
+async function addReaction(messageId, emoji) {
   // Find the message
   const message = currentGroup.messages.find(m => m.id === messageId);
   if (!message) return;
   
+  try {
+    // Try API first
+    if (isServerAvailable) {
+      const result = await API.addReaction(currentGroup.id, messageId, emoji, currentUser.username);
+      if (result.success) {
+        // Update local message with server response
+        message.reactions = result.message.reactions;
+        saveGroups(groups);
+        hideEmojiPicker();
+        renderMessages();
+        return;
+      }
+    }
+  } catch (error) {
+    console.log('Server unavailable, using local storage');
+  }
+  
+  // Fallback: Handle locally
   // Make sure reactions object exists
   if (!message.reactions) {
     message.reactions = {};

@@ -244,15 +244,17 @@
     ============================================================
     JAVASCRIPT FILES - Load in order!
     ============================================================
-    1. data.js - Saves and loads data from browser storage
-    2. helpers.js - Useful functions used everywhere
-    3. toast.js - Shows notification pop-ups
-    4. login.js - Handles the login page
-    5. groups.js - Handles creating/joining groups
-    6. hangouts.js - Handles proposing and responding to hangouts
-    7. chat.js - Handles the group chat
-    8. app.js - Starts the app and connects everything
+    1. api.js - Handles communication with the server (defines isServerAvailable)
+    2. data.js - Saves and loads data from browser storage
+    3. helpers.js - Useful functions used everywhere
+    4. toast.js - Shows notification pop-ups
+    5. login.js - Handles the login page
+    6. groups.js - Handles creating/joining groups
+    7. hangouts.js - Handles proposing and responding to hangouts
+    8. chat.js - Handles the group chat
+    9. app.js - Starts the app and connects everything
   -->
+  <script src="js/api.js"></script>
   <script src="js/data.js"></script>
   <script src="js/helpers.js"></script>
   <script src="js/toast.js"></script>

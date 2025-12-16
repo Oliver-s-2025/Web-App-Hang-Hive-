@@ -11,7 +11,7 @@ let currentFilter = 'all';
 /**
  * Propose a new hangout
  */
-function proposeHangout() {
+async function proposeHangout() {
   // Get form values
   const title = document.getElementById('hangout-title-input').value.trim();
   const date = document.getElementById('hangout-date-input').value;
@@ -25,15 +25,43 @@ function proposeHangout() {
     return;
   }
   
-  // Create the hangout
-  const newHangout = {
-    id: generateId(),
+  // Hangout data to send
+  const hangoutData = {
     title: title,
     date: date,
     time: time,
     location: location,
     description: description,
-    proposedBy: currentUser.username,
+    proposedBy: currentUser.username
+  };
+  
+  try {
+    // Try API first
+    if (isServerAvailable) {
+      const result = await API.createHangout(currentGroup.id, hangoutData);
+      if (result.success) {
+        // Update local data with server response
+        currentGroup.hangouts = result.hangouts;
+        // Also update in groups array
+        const groupIndex = groups.findIndex(g => g.id === currentGroup.id);
+        if (groupIndex !== -1) {
+          groups[groupIndex].hangouts = result.hangouts;
+        }
+        saveGroups(groups);
+        showToast('Hangout proposed! 🎉', 'success');
+        hideHangoutForm();
+        renderHangouts();
+        return;
+      }
+    }
+  } catch (error) {
+    console.log('Server unavailable, using local storage');
+  }
+  
+  // Fallback: Create locally
+  const newHangout = {
+    id: generateId(),
+    ...hangoutData,
     createdAt: new Date().toISOString(),
     responses: {}
   };
@@ -63,12 +91,38 @@ function proposeHangout() {
 /**
  * Respond to a hangout (going, maybe, not going)
  */
-function respondToHangout(hangoutId, response) {
+async function respondToHangout(hangoutId, response) {
   // Find the hangout
   const hangout = currentGroup.hangouts.find(h => h.id === hangoutId);
   if (!hangout) return;
   
-  // Update their response
+  try {
+    // Try API first
+    if (isServerAvailable) {
+      const result = await API.respondToHangout(currentGroup.id, hangoutId, currentUser.username, response);
+      if (result.success) {
+        // Update local hangout with server response
+        hangout.responses = result.hangout.responses;
+        saveGroups(groups);
+        
+        // Show message based on response
+        if (response === 'going') {
+          showToast('You\'re going! 🎉', 'success');
+        } else if (response === 'maybe') {
+          showToast('Marked as maybe 🤔', 'info');
+        } else {
+          showToast('Marked as not going', 'info');
+        }
+        
+        renderHangouts();
+        return;
+      }
+    }
+  } catch (error) {
+    console.log('Server unavailable, using local storage');
+  }
+  
+  // Fallback: Update locally
   hangout.responses[currentUser.username] = response;
   
   // Save changes
@@ -90,7 +144,7 @@ function respondToHangout(hangoutId, response) {
 /**
  * Delete a hangout (only the creator can do this)
  */
-function deleteHangout(hangoutId) {
+async function deleteHangout(hangoutId) {
   // Find the hangout
   const hangout = currentGroup.hangouts.find(h => h.id === hangoutId);
   if (!hangout) return;
@@ -106,7 +160,29 @@ function deleteHangout(hangoutId) {
     return;
   }
   
-  // Remove the hangout
+  try {
+    // Try API first
+    if (isServerAvailable) {
+      const result = await API.deleteHangout(currentGroup.id, hangoutId);
+      if (result.success) {
+        // Update local data
+        currentGroup.hangouts = currentGroup.hangouts.filter(h => h.id !== hangoutId);
+        // Also update in groups array
+        const groupIndex = groups.findIndex(g => g.id === currentGroup.id);
+        if (groupIndex !== -1) {
+          groups[groupIndex].hangouts = currentGroup.hangouts;
+        }
+        saveGroups(groups);
+        showToast('Hangout deleted', 'info');
+        renderHangouts();
+        return;
+      }
+    }
+  } catch (error) {
+    console.log('Server unavailable, using local storage');
+  }
+  
+  // Fallback: Remove locally
   currentGroup.hangouts = currentGroup.hangouts.filter(h => h.id !== hangoutId);
   
   // Save changes

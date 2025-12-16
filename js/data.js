@@ -2,32 +2,20 @@
   ============================================================
   DATA MANAGEMENT - data.js
   ============================================================
-  Handles saving and loading data from localStorage
+  Handles saving and loading data.
   
-  localStorage is like a small database in your browser
-  that saves data even after you close the browser.
+  This file now works with the backend server (api.js).
+  It also keeps a local copy in localStorage as a fallback.
 */
 
-// The "keys" we use to store data (like folder names)
+// The "keys" we use to store data locally (like folder names)
 const STORAGE_KEY_GROUPS = 'hang-hive-groups';
 const STORAGE_KEY_DARK_MODE = 'hangHive-darkMode';
 const STORAGE_KEY_USER = 'hangHive-user';
 
 // ==========================================
-// LOAD DATA FROM STORAGE
+// LOCAL STORAGE FUNCTIONS (for dark mode and user session)
 // ==========================================
-
-/**
- * Load all groups from localStorage
- * Returns an empty array if nothing is saved yet
- */
-function loadGroups() {
-  const saved = localStorage.getItem(STORAGE_KEY_GROUPS);
-  if (saved) {
-    return JSON.parse(saved);
-  }
-  return [];
-}
 
 /**
  * Load the current user from localStorage
@@ -42,24 +30,6 @@ function loadUser() {
 }
 
 /**
- * Check if dark mode is enabled
- */
-function loadDarkMode() {
-  return localStorage.getItem(STORAGE_KEY_DARK_MODE) === 'true';
-}
-
-// ==========================================
-// SAVE DATA TO STORAGE
-// ==========================================
-
-/**
- * Save all groups to localStorage
- */
-function saveGroups(groups) {
-  localStorage.setItem(STORAGE_KEY_GROUPS, JSON.stringify(groups));
-}
-
-/**
  * Save the current user to localStorage
  */
 function saveUser(user) {
@@ -71,10 +41,76 @@ function saveUser(user) {
 }
 
 /**
+ * Check if dark mode is enabled
+ */
+function loadDarkMode() {
+  return localStorage.getItem(STORAGE_KEY_DARK_MODE) === 'true';
+}
+
+/**
  * Save dark mode preference
  */
 function saveDarkMode(enabled) {
   localStorage.setItem(STORAGE_KEY_DARK_MODE, enabled.toString());
+}
+
+// ==========================================
+// GROUPS - Now loaded from server
+// ==========================================
+
+/**
+ * Load all groups from localStorage (synchronous, fast)
+ * Used for initial load before server check
+ */
+function loadGroups() {
+  const saved = localStorage.getItem(STORAGE_KEY_GROUPS);
+  return saved ? JSON.parse(saved) : [];
+}
+
+/**
+ * Save groups to localStorage
+ */
+function saveGroups(groupsData) {
+  localStorage.setItem(STORAGE_KEY_GROUPS, JSON.stringify(groupsData));
+}
+
+/**
+ * Load all groups from the server
+ * Falls back to localStorage if server is unavailable
+ */
+async function loadGroupsFromServer() {
+  try {
+    const serverGroups = await API.getGroups(currentUser.username);
+    // Also save locally as backup
+    localStorage.setItem(STORAGE_KEY_GROUPS, JSON.stringify(serverGroups));
+    // Update the global groups variable
+    groups = serverGroups;
+    return serverGroups;
+  } catch (error) {
+    console.warn('Could not load from server, using local data:', error);
+    const saved = localStorage.getItem(STORAGE_KEY_GROUPS);
+    return saved ? JSON.parse(saved) : [];
+  }
+}
+
+/**
+ * Refresh the current group from the server
+ */
+async function refreshCurrentGroup() {
+  if (!currentGroup) return;
+  
+  try {
+    const group = await API.getGroup(currentGroup.id);
+    currentGroup = group;
+    
+    // Update in the groups array too
+    const index = groups.findIndex(g => g.id === group.id);
+    if (index !== -1) {
+      groups[index] = group;
+    }
+  } catch (error) {
+    console.warn('Could not refresh group:', error);
+  }
 }
 
 // ==========================================

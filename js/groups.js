@@ -9,7 +9,7 @@
  * Create a new group
  * Called when the user fills out the create group form
  */
-function createGroup() {
+async function createGroup() {
   // Get the group name from the input
   const nameInput = document.getElementById('new-group-name-input');
   const groupName = nameInput.value.trim();
@@ -20,41 +20,33 @@ function createGroup() {
     return;
   }
   
-  // Create the new group object
-  const newGroup = {
-    id: generateId(),
-    name: groupName,
-    code: generateGroupCode(),
-    members: [currentUser.username],  // Creator is first member
-    createdBy: currentUser.username,
-    createdAt: new Date().toISOString(),
-    hangouts: [],
-    messages: []
-  };
-  
-  // Add to our list of groups
-  groups.push(newGroup);
-  
-  // Save to localStorage
-  saveGroups(groups);
-  
-  // Show success message with the code
-  showToast(`Group created! Code: ${newGroup.code}`, 'success');
-  
-  // Clear the input
-  nameInput.value = '';
-  
-  // Hide the create form
-  hideCreateGroupForm();
-  
-  // Refresh the groups list
-  renderGroups();
+  try {
+    // Create via API
+    const newGroup = await apiCreateGroup(groupName, currentUser.username);
+    
+    // Add to local groups array
+    groups.push(newGroup);
+    
+    // Show success message with the code
+    showToast(`Group created! Code: ${newGroup.code}`, 'success');
+    
+    // Clear the input
+    nameInput.value = '';
+    
+    // Hide the create form
+    hideCreateGroupForm();
+    
+    // Refresh the groups list
+    renderGroups();
+  } catch (error) {
+    showToast(error.message || 'Could not create group', 'error');
+  }
 }
 
 /**
  * Join an existing group using a code
  */
-function joinGroup() {
+async function joinGroup() {
   // Get the code they entered
   const codeInput = document.getElementById('join-code-input');
   const code = codeInput.value.trim().toUpperCase();
@@ -65,43 +57,30 @@ function joinGroup() {
     return;
   }
   
-  // Find the group with this code
-  const group = groups.find(function(g) {
-    return g.code === code;
-  });
-  
-  // Check if group exists
-  if (!group) {
-    showToast('No group found with that code', 'error');
-    return;
+  try {
+    // Join via API
+    const group = await apiJoinGroup(code, currentUser.username);
+    
+    // Add to local groups array
+    groups.push(group);
+    
+    // Show success
+    showToast(`Joined "${group.name}"!`, 'success');
+    
+    // Clear the input
+    codeInput.value = '';
+    
+    // Refresh the list
+    renderGroups();
+  } catch (error) {
+    showToast(error.message || 'Could not join group', 'error');
   }
-  
-  // Check if already a member
-  if (group.members.includes(currentUser.username)) {
-    showToast('You are already in this group', 'error');
-    return;
-  }
-  
-  // Add user to the group
-  group.members.push(currentUser.username);
-  
-  // Save changes
-  saveGroups(groups);
-  
-  // Show success
-  showToast(`Joined "${group.name}"!`, 'success');
-  
-  // Clear the input
-  codeInput.value = '';
-  
-  // Refresh the list
-  renderGroups();
 }
 
 /**
  * Leave a group
  */
-function leaveGroup(groupId) {
+async function leaveGroup(groupId) {
   // Find the group
   const group = groups.find(g => g.id === groupId);
   if (!group) return;
@@ -111,43 +90,49 @@ function leaveGroup(groupId) {
     return;
   }
   
-  // Remove user from members
-  group.members = group.members.filter(function(member) {
-    return member !== currentUser.username;
-  });
-  
-  // If group is empty, delete it
-  if (group.members.length === 0) {
+  try {
+    // Leave via API
+    const result = await apiLeaveGroup(groupId, currentUser.username);
+    
+    // Remove from local array
     groups = groups.filter(g => g.id !== groupId);
-    showToast('Group deleted (no members left)', 'info');
-  } else {
-    showToast(`Left "${group.name}"`, 'info');
+    
+    if (result.deleted) {
+      showToast('Group deleted (no members left)', 'info');
+    } else {
+      showToast(`Left "${group.name}"`, 'info');
+    }
+    
+    // Go back to groups list
+    currentGroup = null;
+    showPage('groups');
+  } catch (error) {
+    showToast(error.message || 'Could not leave group', 'error');
   }
-  
-  // Save changes
-  saveGroups(groups);
-  
-  // Go back to groups list
-  currentGroup = null;
-  showPage('groups');
 }
 
 /**
  * Open a group to see its hangouts
  */
-function openGroup(groupId) {
-  // Find the group
-  const group = groups.find(g => g.id === groupId);
-  if (!group) {
-    showToast('Group not found', 'error');
-    return;
+async function openGroup(groupId) {
+  try {
+    // Get fresh data from server
+    const group = await apiGetGroup(groupId);
+    
+    // Set as current group
+    currentGroup = group;
+    
+    // Update in local array
+    const index = groups.findIndex(g => g.id === groupId);
+    if (index !== -1) {
+      groups[index] = group;
+    }
+    
+    // Go to the hangout page
+    showPage('hangout');
+  } catch (error) {
+    showToast('Could not open group', 'error');
   }
-  
-  // Set as current group
-  currentGroup = group;
-  
-  // Go to the hangout page
-  showPage('hangout');
 }
 
 /**

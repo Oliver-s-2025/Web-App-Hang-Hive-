@@ -100,12 +100,34 @@ function applyDarkMode() {
  * This function runs when the page first loads
  * It sets everything up!
  */
-function initializeApp() {
+async function initializeApp() {
   console.log('🐝 HangHive is starting up!');
   
-  // Load saved data from localStorage
+  // Check if server is available first
+  try {
+    const response = await fetch('/api/groups');
+    if (response.ok) {
+      isServerAvailable = true;
+      console.log('✅ Connected to server!');
+    }
+  } catch (error) {
+    isServerAvailable = false;
+    console.log('⚠️ Server unavailable, using local storage');
+  }
+  
+  // Load saved data from localStorage first (fast)
   groups = loadGroups();
   currentUser = loadUser();
+  
+  // If server is available, also load from server
+  if (isServerAvailable && currentUser) {
+    try {
+      await loadGroupsFromServer();
+      console.log('✅ Loaded groups from server');
+    } catch (error) {
+      console.log('⚠️ Could not load from server, using local data');
+    }
+  }
   
   // Apply dark mode if saved
   applyDarkMode();
