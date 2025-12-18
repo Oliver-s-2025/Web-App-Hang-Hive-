@@ -1,9 +1,9 @@
 /*
   ============================================================
-  MAIN ENTRY POINT - main.js
+  MAIN.JS - Entry Point for Vite
   ============================================================
-  This is the main file that Vite uses to bundle the app.
-  It imports all modules and initializes everything.
+  This file imports all the modules and makes everything work.
+  Vite bundles this file and all its imports into one file.
 */
 
 // Import Firebase
@@ -12,9 +12,23 @@ import {
   collection, 
   doc, 
   getDocs, 
+  getDoc, 
   setDoc, 
-  deleteDoc
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
+
+// ==========================================
+// CONSTANTS
+// ==========================================
+const STORAGE_KEY_GROUPS = 'hang-hive-groups';
+const STORAGE_KEY_DARK_MODE = 'hangHive-darkMode';
+const STORAGE_KEY_USER = 'hangHive-user';
 
 // ==========================================
 // GLOBAL VARIABLES
@@ -22,14 +36,9 @@ import {
 let currentUser = null;
 let currentGroup = null;
 let groups = [];
-let isFirebaseAvailable = true;
+let isServerAvailable = false;
 let currentFilter = 'all';
 let currentReactionMessageId = null;
-
-// Storage keys for localStorage backup
-const STORAGE_KEY_GROUPS = 'hang-hive-groups';
-const STORAGE_KEY_DARK_MODE = 'hangHive-darkMode';
-const STORAGE_KEY_USER = 'hangHive-user';
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -89,9 +98,31 @@ function getHangoutStatus(hangout, memberCount) {
   const goingCount = responses.filter(r => r === 'going').length;
   const notGoingCount = responses.filter(r => r === 'notGoing').length;
   
-  if (goingCount >= Math.ceil(memberCount / 2)) return 'confirmed';
-  if (notGoingCount >= Math.ceil(memberCount / 2)) return 'cancelled';
+  if (goingCount > memberCount / 2) return 'confirmed';
+  if (notGoingCount > memberCount / 2) return 'cancelled';
   return 'pending';
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+}
+
+function groupMatchesSearch(group, searchTerm) {
+  if (!searchTerm) return true;
+  const term = searchTerm.toLowerCase();
+  return (
+    group.name.toLowerCase().includes(term) ||
+    group.code.toLowerCase().includes(term)
+  );
 }
 
 // ==========================================
@@ -132,22 +163,181 @@ function saveGroups(groupsData) {
 // TOAST NOTIFICATIONS
 // ==========================================
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'success') {
   const container = document.getElementById('toast-container');
-  if (!container) return;
-  
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.textContent = message;
   
+  let icon = '';
+  if (type === 'success') icon = '✓';
+  else if (type === 'error') icon = '✕';
+  else icon = 'ℹ';
+  
+  toast.innerHTML = `<span>${icon}</span> ${message}`;
   container.appendChild(toast);
   
-  setTimeout(() => toast.classList.add('show'), 10);
-  
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 300);
+  setTimeout(function() {
+    toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+    setTimeout(function() {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, 300);
   }, 3000);
+}
+
+// ==========================================
+// FIREBASE API FUNCTIONS
+// ==========================================
+
+async function apiLogin(username) {
+  try {
+    // Check if user exists in Firebase
+    const usersRef = collection(db, 'users');
+    const userDoc = doc(db, 'users', username);
+    const userSnap = await getDoc(userDoc);
+    
+    if (!userSnap.exists()) {
+      // Create new user
+      await setDoc(userDoc, {
+        username: username,
+        createdAt: new Date().toISOString()
+      });
+    }
+    
+    return { username: username };
+  } catch (error) {
+    console.error('Login error:', error);
+    // Fallback - just return the username
+    return { username: username };
+  }
+}
+
+async function loadGroupsFromServer() {
+  try {
+    const groupsRef = collection(db, 'groups');
+    const snapshot = await getDocs(groupsRef);
+    
+    const serverGroups = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Only include groups where user is a member
+      if (data.members && data.members.includes(currentUser.username)) {
+        serverGroups.push({ id: doc.id, ...data });
+      }
+    });
+    
+    // Save locally as backup
+    localStorage.setItem(STORAGE_KEY_GROUPS, JSON.stringify(serverGroups));
+    groups = serverGroups;
+    return serverGroups;
+  } catch (error) {
+    console.warn('Could not load from server:', error);
+    return loadGroups();
+  }
+}
+
+async function apiCreateGroup(name, createdBy) {
+  const code = generateGroupCode();
+  const newGroup = {
+    name: name,
+    code: code,
+    members: [createdBy],
+    createdBy: createdBy,
+    createdAt: new Date().toISOString(),
+    hangouts: [],
+    messages: []
+  };
+  
+  try {
+    const groupsRef = collection(db, 'groups');
+    const docRef = await addDoc(groupsRef, newGroup);
+    return { id: docRef.id, ...newGroup };
+  } catch (error) {
+    console.error('Create group error:', error);
+    // Fallback to local
+    newGroup.id = generateId();
+    return newGroup;
+  }
+}
+
+async function apiJoinGroup(code, username) {
+  try {
+    const groupsRef = collection(db, 'groups');
+    const snapshot = await getDocs(groupsRef);
+    
+    let foundGroup = null;
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.code === code.toUpperCase()) {
+        foundGroup = { id: docSnap.id, ...data };
+      }
+    });
+    
+    if (!foundGroup) {
+      throw new Error('Group not found');
+    }
+    
+    if (foundGroup.members.includes(username)) {
+      throw new Error('Already a member');
+    }
+    
+    // Add member
+    const groupDoc = doc(db, 'groups', foundGroup.id);
+    await updateDoc(groupDoc, {
+      members: arrayUnion(username)
+    });
+    
+    foundGroup.members.push(username);
+    return foundGroup;
+  } catch (error) {
+    console.error('Join group error:', error);
+    throw error;
+  }
+}
+
+async function apiGetGroup(groupId) {
+  try {
+    const groupDoc = doc(db, 'groups', groupId);
+    const snapshot = await getDoc(groupDoc);
+    
+    if (!snapshot.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    return { id: snapshot.id, ...snapshot.data() };
+  } catch (error) {
+    console.error('Get group error:', error);
+    throw error;
+  }
+}
+
+async function apiLeaveGroup(groupId, username) {
+  try {
+    const groupDoc = doc(db, 'groups', groupId);
+    const snapshot = await getDoc(groupDoc);
+    
+    if (!snapshot.exists()) {
+      throw new Error('Group not found');
+    }
+    
+    const data = snapshot.data();
+    const newMembers = data.members.filter(m => m !== username);
+    
+    if (newMembers.length === 0) {
+      // Delete group if no members left
+      await deleteDoc(groupDoc);
+      return { deleted: true };
+    } else {
+      await updateDoc(groupDoc, {
+        members: arrayRemove(username)
+      });
+      return { deleted: false };
+    }
+  } catch (error) {
+    console.error('Leave group error:', error);
+    throw error;
+  }
 }
 
 // ==========================================
@@ -161,11 +351,13 @@ function showPage(pageName) {
   
   if (pageName === 'login') {
     document.getElementById('login-page').classList.remove('hidden');
-  } else if (pageName === 'groups') {
+  }
+  else if (pageName === 'groups') {
     document.getElementById('groups-page').classList.remove('hidden');
     updateWelcomeMessage();
     renderGroups();
-  } else if (pageName === 'hangout') {
+  }
+  else if (pageName === 'hangout') {
     document.getElementById('hangout-page').classList.remove('hidden');
     renderHangouts();
     renderMessages();
@@ -189,7 +381,7 @@ function toggleDarkMode() {
   saveDarkMode(isDark);
   
   const buttons = document.querySelectorAll('[id^="dark-mode-toggle"]');
-  buttons.forEach(button => {
+  buttons.forEach(function(button) {
     button.textContent = isDark ? '☀️' : '🌙';
   });
 }
@@ -201,54 +393,9 @@ function applyDarkMode() {
   }
   
   const buttons = document.querySelectorAll('[id^="dark-mode-toggle"]');
-  buttons.forEach(button => {
+  buttons.forEach(function(button) {
     button.textContent = isDark ? '☀️' : '🌙';
   });
-}
-
-// ==========================================
-// FIREBASE FUNCTIONS
-// ==========================================
-
-async function loadGroupsFromFirebase() {
-  try {
-    // Simple query - get all groups, filter locally
-    // This avoids needing Firebase indexes
-    const groupsRef = collection(db, 'groups');
-    const snapshot = await getDocs(groupsRef);
-    
-    groups = [];
-    snapshot.forEach(docSnap => {
-      const groupData = { id: docSnap.id, ...docSnap.data() };
-      // Only include groups the user is a member of
-      if (groupData.members && groupData.members.includes(currentUser.username)) {
-        groups.push(groupData);
-      }
-    });
-    
-    saveGroups(groups);
-    return groups;
-  } catch (error) {
-    console.error('Error loading groups from Firebase:', error);
-    isFirebaseAvailable = false;
-    // Fall back to local storage
-    return loadGroups();
-  }
-}
-
-async function saveGroupToFirebase(group) {
-  if (!isFirebaseAvailable) {
-    return false;
-  }
-  try {
-    const groupRef = doc(db, 'groups', group.id);
-    await setDoc(groupRef, group);
-    return true;
-  } catch (error) {
-    console.error('Error saving group to Firebase:', error);
-    isFirebaseAvailable = false;
-    return false;
-  }
 }
 
 // ==========================================
@@ -257,57 +404,40 @@ async function saveGroupToFirebase(group) {
 
 async function handleLogin() {
   const usernameInput = document.getElementById('username-input');
-  const loginButton = document.getElementById('login-button');
   const username = usernameInput.value.trim();
   
   if (username === '') {
-    showToast('Please enter a username', 'error');
+    showToast('Please enter your name', 'error');
     return;
   }
   
-  if (username.length < 2) {
-    showToast('Username must be at least 2 characters', 'error');
-    return;
-  }
+  const loginButton = document.getElementById('login-button');
+  const originalText = loginButton.textContent;
+  loginButton.textContent = 'Logging in...';
+  loginButton.disabled = true;
   
-  // Show loading state
-  if (loginButton) {
-    loginButton.textContent = 'Loading...';
-    loginButton.disabled = true;
-  }
-  
-  currentUser = {
-    username: username,
-    id: generateId(),
-    createdAt: new Date().toISOString()
-  };
-  
-  saveUser(currentUser);
-  
-  // Show the groups page immediately with local data
-  groups = loadGroups();
-  showToast(`Welcome, ${username}! 🐝`, 'success');
-  showPage('groups');
-  
-  // Reset button
-  if (loginButton) {
-    loginButton.textContent = 'Enter the Hive 🐝';
+  try {
+    const user = await apiLogin(username);
+    saveUser(user);
+    currentUser = user;
+    groups = await loadGroupsFromServer();
+    showToast(`Welcome, ${user.username}!`, 'success');
+    usernameInput.value = '';
+    showPage('groups');
+  } catch (error) {
+    showToast('Could not connect. Please try again.', 'error');
+    console.error('Login error:', error);
+  } finally {
+    loginButton.textContent = originalText;
     loginButton.disabled = false;
   }
-  
-  // Load from Firebase in background (non-blocking)
-  loadGroupsFromFirebase().then(() => {
-    renderGroups(); // Re-render with fresh data
-  }).catch(err => {
-    console.log('Firebase sync failed, using local data');
-  });
 }
 
 function handleLogout() {
+  saveUser(null);
   currentUser = null;
   currentGroup = null;
   groups = [];
-  saveUser(null);
   showToast('Logged out successfully', 'info');
   showPage('login');
 }
@@ -317,99 +447,45 @@ function handleLogout() {
 // ==========================================
 
 async function createGroup() {
-  console.log('createGroup called');
   const nameInput = document.getElementById('new-group-name-input');
-  const groupName = nameInput ? nameInput.value.trim() : '';
-  console.log('groupName:', groupName);
+  const groupName = nameInput.value.trim();
   
   if (groupName === '') {
     showToast('Please enter a group name', 'error');
     return;
   }
   
-  const newGroup = {
-    id: generateId(),
-    name: groupName,
-    code: generateGroupCode(),
-    members: [currentUser.username],
-    createdBy: currentUser.username,
-    createdAt: new Date().toISOString(),
-    hangouts: [],
-    messages: []
-  };
-  
-  // Save to Firebase
-  const saved = await saveGroupToFirebase(newGroup);
-  
-  if (saved) {
+  try {
+    const newGroup = await apiCreateGroup(groupName, currentUser.username);
     groups.push(newGroup);
     saveGroups(groups);
-    showToast(`Group "${groupName}" created! 🎉`, 'success');
-    if (nameInput) nameInput.value = '';
+    showToast(`Group created! Code: ${newGroup.code}`, 'success');
+    nameInput.value = '';
     hideCreateGroupForm();
     renderGroups();
-  } else {
-    // Fallback to local only
-    groups.push(newGroup);
-    saveGroups(groups);
-    showToast(`Group created (offline mode)`, 'info');
-    if (nameInput) nameInput.value = '';
-    hideCreateGroupForm();
-    renderGroups();
+  } catch (error) {
+    showToast(error.message || 'Could not create group', 'error');
   }
 }
 
 async function joinGroup() {
-  console.log('joinGroup called');
   const codeInput = document.getElementById('join-code-input');
-  const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
-  console.log('code:', code);
+  const code = codeInput.value.trim().toUpperCase();
   
   if (code === '') {
     showToast('Please enter a group code', 'error');
     return;
   }
   
-  showToast('Searching for group...', 'info');
-  
   try {
-    // Search for group by code in Firebase
-    const groupsRef = collection(db, 'groups');
-    const snapshot = await getDocs(groupsRef);
-    
-    let foundGroup = null;
-    snapshot.forEach(docSnap => {
-      const group = { id: docSnap.id, ...docSnap.data() };
-      if (group.code === code) {
-        foundGroup = group;
-      }
-    });
-    
-    if (!foundGroup) {
-      showToast('No group found with that code', 'error');
-      return;
-    }
-    
-    if (foundGroup.members && foundGroup.members.includes(currentUser.username)) {
-      showToast('You are already in this group', 'error');
-      return;
-    }
-    
-    // Add member to group
-    if (!foundGroup.members) foundGroup.members = [];
-    foundGroup.members.push(currentUser.username);
-    await saveGroupToFirebase(foundGroup);
-    
-    groups.push(foundGroup);
+    const group = await apiJoinGroup(code, currentUser.username);
+    groups.push(group);
     saveGroups(groups);
-    
-    showToast(`Joined "${foundGroup.name}"! 🎉`, 'success');
-    clearJoinInput();
+    showToast(`Joined "${group.name}"!`, 'success');
+    codeInput.value = '';
     renderGroups();
-    
   } catch (error) {
-    console.error('Error joining group:', error);
-    showToast('Error joining group - check your connection', 'error');
+    showToast(error.message || 'Could not join group', 'error');
   }
 }
 
@@ -417,39 +493,41 @@ async function leaveGroup(groupId) {
   const group = groups.find(g => g.id === groupId);
   if (!group) return;
   
-  if (!confirm(`Leave "${group.name}"?`)) return;
-  
-  group.members = group.members.filter(m => m !== currentUser.username);
-  
-  if (group.members.length === 0) {
-    // Delete group if empty
-    try {
-      await deleteDoc(doc(db, 'groups', groupId));
-    } catch (error) {
-      console.error('Error deleting group:', error);
-    }
-    groups = groups.filter(g => g.id !== groupId);
-  } else {
-    await saveGroupToFirebase(group);
-    groups = groups.filter(g => g.id !== groupId);
+  if (!confirm(`Are you sure you want to leave "${group.name}"?`)) {
+    return;
   }
   
-  saveGroups(groups);
-  
-  if (currentGroup && currentGroup.id === groupId) {
+  try {
+    const result = await apiLeaveGroup(groupId, currentUser.username);
+    groups = groups.filter(g => g.id !== groupId);
+    saveGroups(groups);
+    
+    if (result.deleted) {
+      showToast('Group deleted (no members left)', 'info');
+    } else {
+      showToast(`Left "${group.name}"`, 'info');
+    }
+    
     currentGroup = null;
     showPage('groups');
+  } catch (error) {
+    showToast(error.message || 'Could not leave group', 'error');
   }
-  
-  showToast('Left the group', 'info');
-  renderGroups();
 }
 
-function openGroup(groupId) {
-  const group = groups.find(g => g.id === groupId);
-  if (group) {
+async function openGroup(groupId) {
+  try {
+    const group = await apiGetGroup(groupId);
     currentGroup = group;
+    
+    const index = groups.findIndex(g => g.id === groupId);
+    if (index !== -1) {
+      groups[index] = group;
+    }
+    
     showPage('hangout');
+  } catch (error) {
+    showToast('Could not open group', 'error');
   }
 }
 
@@ -457,7 +535,16 @@ function renderGroups() {
   const container = document.getElementById('groups-list');
   const noGroupsMessage = document.getElementById('no-groups-message');
   
-  if (groups.length === 0) {
+  const searchInput = document.getElementById('search-groups-input');
+  const searchTerm = searchInput ? searchInput.value : '';
+  
+  const myGroups = groups.filter(function(group) {
+    const isMember = group.members && group.members.includes(currentUser.username);
+    const matchesSearch = groupMatchesSearch(group, searchTerm);
+    return isMember && matchesSearch;
+  });
+  
+  if (myGroups.length === 0) {
     if (noGroupsMessage) noGroupsMessage.classList.remove('hidden');
     if (container) container.innerHTML = '';
     return;
@@ -466,9 +553,10 @@ function renderGroups() {
   if (noGroupsMessage) noGroupsMessage.classList.add('hidden');
   
   let html = '';
-  groups.forEach(group => {
-    const memberCount = group.members.length;
-    const hangoutCount = (group.hangouts || []).length;
+  
+  myGroups.forEach(function(group) {
+    const memberCount = group.members ? group.members.length : 0;
+    const hangoutCount = group.hangouts ? group.hangouts.length : 0;
     
     html += `
       <div class="group-card" onclick="window.openGroup('${group.id}')">
@@ -476,9 +564,17 @@ function renderGroups() {
           <h3 class="group-name">${group.name}</h3>
           <span class="group-code">${group.code}</span>
         </div>
-        <div class="group-card-info">
+        <div class="group-card-stats">
           <span>👥 ${memberCount} member${memberCount !== 1 ? 's' : ''}</span>
           <span>📅 ${hangoutCount} hangout${hangoutCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="group-card-actions">
+          <button class="secondary-button small" onclick="event.stopPropagation(); window.copyGroupCode('${group.code}')">
+            📋 Copy Code
+          </button>
+          <button class="danger-button small" onclick="event.stopPropagation(); window.leaveGroup('${group.id}')">
+            🚪 Leave
+          </button>
         </div>
       </div>
     `;
@@ -487,35 +583,25 @@ function renderGroups() {
   if (container) container.innerHTML = html;
 }
 
+function copyGroupCode(code) {
+  copyToClipboard(code);
+  showToast('Code copied! Share it with friends', 'success');
+}
+
 function showCreateGroupForm() {
-  console.log('showCreateGroupForm called');
   const form = document.getElementById('create-group-form');
-  const btn = document.getElementById('show-create-group-button');
-  console.log('form:', form, 'btn:', btn);
+  const button = document.getElementById('show-create-group-button');
   if (form) form.classList.remove('hidden');
-  if (btn) btn.classList.add('hidden');
+  if (button) button.classList.add('hidden');
 }
 
 function hideCreateGroupForm() {
   const form = document.getElementById('create-group-form');
-  const btn = document.getElementById('show-create-group-button');
+  const button = document.getElementById('show-create-group-button');
   const input = document.getElementById('new-group-name-input');
   if (form) form.classList.add('hidden');
-  if (btn) btn.classList.remove('hidden');
+  if (button) button.classList.remove('hidden');
   if (input) input.value = '';
-}
-
-function clearJoinInput() {
-  const input = document.getElementById('join-code-input');
-  if (input) input.value = '';
-}
-
-function copyGroupCode(code) {
-  navigator.clipboard.writeText(code).then(() => {
-    showToast('Code copied! 📋', 'success');
-  }).catch(() => {
-    showToast('Could not copy code', 'error');
-  });
 }
 
 // ==========================================
@@ -536,20 +622,36 @@ async function proposeHangout() {
   
   const newHangout = {
     id: generateId(),
-    title,
-    date,
-    time,
-    location,
-    description,
+    title: title,
+    date: date,
+    time: time,
+    location: location,
+    description: description,
     proposedBy: currentUser.username,
     createdAt: new Date().toISOString(),
-    responses: { [currentUser.username]: 'going' }
+    responses: {}
   };
   
-  if (!currentGroup.hangouts) currentGroup.hangouts = [];
+  newHangout.responses[currentUser.username] = 'going';
+  
+  if (!currentGroup.hangouts) {
+    currentGroup.hangouts = [];
+  }
   currentGroup.hangouts.push(newHangout);
   
-  await saveGroupToFirebase(currentGroup);
+  try {
+    const groupDoc = doc(db, 'groups', currentGroup.id);
+    await updateDoc(groupDoc, {
+      hangouts: currentGroup.hangouts
+    });
+  } catch (error) {
+    console.error('Save hangout error:', error);
+  }
+  
+  const groupIndex = groups.findIndex(g => g.id === currentGroup.id);
+  if (groupIndex !== -1) {
+    groups[groupIndex] = currentGroup;
+  }
   saveGroups(groups);
   
   showToast('Hangout proposed! 🎉', 'success');
@@ -563,11 +665,19 @@ async function respondToHangout(hangoutId, response) {
   
   hangout.responses[currentUser.username] = response;
   
-  await saveGroupToFirebase(currentGroup);
+  try {
+    const groupDoc = doc(db, 'groups', currentGroup.id);
+    await updateDoc(groupDoc, {
+      hangouts: currentGroup.hangouts
+    });
+  } catch (error) {
+    console.error('Save response error:', error);
+  }
+  
   saveGroups(groups);
   
   if (response === 'going') {
-    showToast('You\'re going! 🎉', 'success');
+    showToast("You're going! 🎉", 'success');
   } else if (response === 'maybe') {
     showToast('Marked as maybe 🤔', 'info');
   } else {
@@ -586,11 +696,25 @@ async function deleteHangout(hangoutId) {
     return;
   }
   
-  if (!confirm(`Delete "${hangout.title}"?`)) return;
+  if (!confirm(`Delete "${hangout.title}"?`)) {
+    return;
+  }
   
   currentGroup.hangouts = currentGroup.hangouts.filter(h => h.id !== hangoutId);
   
-  await saveGroupToFirebase(currentGroup);
+  try {
+    const groupDoc = doc(db, 'groups', currentGroup.id);
+    await updateDoc(groupDoc, {
+      hangouts: currentGroup.hangouts
+    });
+  } catch (error) {
+    console.error('Delete hangout error:', error);
+  }
+  
+  const groupIndex = groups.findIndex(g => g.id === currentGroup.id);
+  if (groupIndex !== -1) {
+    groups[groupIndex] = currentGroup;
+  }
   saveGroups(groups);
   
   showToast('Hangout deleted', 'info');
@@ -601,7 +725,7 @@ function setHangoutFilter(filter) {
   currentFilter = filter;
   
   const buttons = document.querySelectorAll('.filter-button');
-  buttons.forEach(btn => {
+  buttons.forEach(function(btn) {
     if (btn.getAttribute('data-filter') === filter) {
       btn.classList.add('active');
     } else {
@@ -619,15 +743,19 @@ function renderHangouts() {
   if (groupNameEl) groupNameEl.textContent = currentGroup.name;
   if (groupCodeEl) groupCodeEl.textContent = currentGroup.code;
   
+  const filter = currentFilter;
   const now = new Date();
-  let filteredHangouts = (currentGroup.hangouts || []).filter(hangout => {
+  
+  let filteredHangouts = (currentGroup.hangouts || []).filter(function(hangout) {
     const hangoutDate = new Date(hangout.date);
-    if (currentFilter === 'upcoming' && hangoutDate < now) return false;
-    if (currentFilter === 'past' && hangoutDate >= now) return false;
+    if (filter === 'upcoming' && hangoutDate < now) return false;
+    if (filter === 'past' && hangoutDate >= now) return false;
     return true;
   });
   
-  filteredHangouts.sort((a, b) => new Date(a.date) - new Date(b.date));
+  filteredHangouts.sort(function(a, b) {
+    return new Date(a.date) - new Date(b.date);
+  });
   
   const container = document.getElementById('hangouts-list');
   const noHangoutsMessage = document.getElementById('no-hangouts-message');
@@ -638,15 +766,17 @@ function renderHangouts() {
       const cards = container.querySelectorAll('.hangout-card');
       cards.forEach(card => card.remove());
     }
+    renderMembers();
     return;
   }
   
   if (noHangoutsMessage) noHangoutsMessage.classList.add('hidden');
   
   let html = '';
-  filteredHangouts.forEach(hangout => {
+  
+  filteredHangouts.forEach(function(hangout) {
     const status = getHangoutStatus(hangout, currentGroup.members.length);
-    const myResponse = hangout.responses[currentUser.username] || 'none';
+    const myResponse = hangout.responses ? hangout.responses[currentUser.username] : 'none';
     const isCreator = hangout.proposedBy === currentUser.username;
     
     const responses = Object.values(hangout.responses || {});
@@ -660,26 +790,43 @@ function renderHangouts() {
           <h3 class="hangout-title">${hangout.title}</h3>
           <span class="status-badge ${status}">${status}</span>
         </div>
+        
         <div class="hangout-details">
           <p>📅 ${formatDate(hangout.date)} at ${formatTime(hangout.time)}</p>
           <p>📍 ${hangout.location}</p>
           ${hangout.description ? `<p>📝 ${hangout.description}</p>` : ''}
           <p class="proposed-by">Proposed by ${hangout.proposedBy}</p>
         </div>
+        
         <div class="response-counts">
           <span class="count going">✓ ${goingCount} going</span>
           <span class="count maybe">? ${maybeCount} maybe</span>
           <span class="count not-going">✕ ${notGoingCount} not going</span>
         </div>
+        
         <div class="response-buttons">
-          <button class="response-button going ${myResponse === 'going' ? 'selected' : ''}"
-            onclick="window.respondToHangout('${hangout.id}', 'going')">✓ Going</button>
-          <button class="response-button maybe ${myResponse === 'maybe' ? 'selected' : ''}"
-            onclick="window.respondToHangout('${hangout.id}', 'maybe')">? Maybe</button>
-          <button class="response-button not-going ${myResponse === 'notGoing' ? 'selected' : ''}"
-            onclick="window.respondToHangout('${hangout.id}', 'notGoing')">✕ Can't Go</button>
+          <button 
+            class="response-button going ${myResponse === 'going' ? 'selected' : ''}"
+            onclick="window.respondToHangout('${hangout.id}', 'going')">
+            ✓ Going
+          </button>
+          <button 
+            class="response-button maybe ${myResponse === 'maybe' ? 'selected' : ''}"
+            onclick="window.respondToHangout('${hangout.id}', 'maybe')">
+            ? Maybe
+          </button>
+          <button 
+            class="response-button not-going ${myResponse === 'notGoing' ? 'selected' : ''}"
+            onclick="window.respondToHangout('${hangout.id}', 'notGoing')">
+            ✕ Can't Go
+          </button>
         </div>
-        ${isCreator ? `<button class="danger-button small delete-hangout" onclick="window.deleteHangout('${hangout.id}')">🗑️ Delete</button>` : ''}
+        
+        ${isCreator ? `
+          <button class="danger-button small delete-hangout" onclick="window.deleteHangout('${hangout.id}')">
+            🗑️ Delete
+          </button>
+        ` : ''}
       </div>
     `;
   });
@@ -697,10 +844,11 @@ function renderMembers() {
   const container = document.getElementById('members-list');
   const countEl = document.getElementById('member-count');
   
-  if (countEl) countEl.textContent = currentGroup.members.length;
+  if (countEl) countEl.textContent = currentGroup.members ? currentGroup.members.length : 0;
   
   let html = '';
-  currentGroup.members.forEach(member => {
+  
+  (currentGroup.members || []).forEach(function(member) {
     const isCurrentUser = member === currentUser.username;
     const isCreator = member === currentGroup.createdBy;
     
@@ -729,7 +877,8 @@ function hideHangoutForm() {
   const form = document.getElementById('new-hangout-form');
   if (form) form.classList.add('hidden');
   
-  ['hangout-title-input', 'hangout-date-input', 'hangout-time-input', 'hangout-location-input', 'hangout-description-input'].forEach(id => {
+  const inputs = ['hangout-title-input', 'hangout-date-input', 'hangout-time-input', 'hangout-location-input', 'hangout-description-input'];
+  inputs.forEach(function(id) {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -749,18 +898,27 @@ async function sendMessage() {
   
   const newMessage = {
     id: generateId(),
-    text,
+    text: text,
     sender: currentUser.username,
     timestamp: new Date().toISOString(),
     reactions: {}
   };
   
-  if (!currentGroup.messages) currentGroup.messages = [];
+  if (!currentGroup.messages) {
+    currentGroup.messages = [];
+  }
   currentGroup.messages.push(newMessage);
   
-  await saveGroupToFirebase(currentGroup);
-  saveGroups(groups);
+  try {
+    const groupDoc = doc(db, 'groups', currentGroup.id);
+    await updateDoc(groupDoc, {
+      messages: currentGroup.messages
+    });
+  } catch (error) {
+    console.error('Send message error:', error);
+  }
   
+  saveGroups(groups);
   renderMessages();
   scrollChatToBottom();
 }
@@ -769,23 +927,35 @@ async function addReaction(messageId, emoji) {
   const message = currentGroup.messages.find(m => m.id === messageId);
   if (!message) return;
   
-  if (!message.reactions) message.reactions = {};
-  if (!message.reactions[emoji]) message.reactions[emoji] = [];
+  if (!message.reactions) {
+    message.reactions = {};
+  }
   
-  const userIndex = message.reactions[emoji].indexOf(currentUser.username);
+  if (!message.reactions[emoji]) {
+    message.reactions[emoji] = [];
+  }
   
-  if (userIndex === -1) {
-    message.reactions[emoji].push(currentUser.username);
-  } else {
-    message.reactions[emoji].splice(userIndex, 1);
+  const userReacted = message.reactions[emoji].includes(currentUser.username);
+  
+  if (userReacted) {
+    message.reactions[emoji] = message.reactions[emoji].filter(name => name !== currentUser.username);
     if (message.reactions[emoji].length === 0) {
       delete message.reactions[emoji];
     }
+  } else {
+    message.reactions[emoji].push(currentUser.username);
   }
   
-  await saveGroupToFirebase(currentGroup);
-  saveGroups(groups);
+  try {
+    const groupDoc = doc(db, 'groups', currentGroup.id);
+    await updateDoc(groupDoc, {
+      messages: currentGroup.messages
+    });
+  } catch (error) {
+    console.error('Add reaction error:', error);
+  }
   
+  saveGroups(groups);
   hideEmojiPicker();
   renderMessages();
 }
@@ -825,23 +995,30 @@ function renderMessages() {
   if (noMessagesEl) noMessagesEl.classList.add('hidden');
   
   let html = '';
-  currentGroup.messages.forEach(message => {
+  
+  currentGroup.messages.forEach(function(message) {
     const isOwn = message.sender === currentUser.username;
     const messageClass = isOwn ? 'sent' : 'received';
     
     let reactionsHtml = '';
     if (message.reactions && Object.keys(message.reactions).length > 0) {
       reactionsHtml = '<div class="message-reactions">';
+      
       for (const emoji in message.reactions) {
         const users = message.reactions[emoji];
         const count = users.length;
         const userReacted = users.includes(currentUser.username);
+        
         reactionsHtml += `
-          <span class="reaction-badge ${userReacted ? 'user-reacted' : ''}"
+          <span 
+            class="reaction-badge ${userReacted ? 'user-reacted' : ''}"
             onclick="window.addReaction('${message.id}', '${emoji}')"
-            title="${users.join(', ')}">${emoji} ${count}</span>
+            title="${users.join(', ')}">
+            ${emoji} ${count}
+          </span>
         `;
       }
+      
       reactionsHtml += '</div>';
     }
     
@@ -853,7 +1030,12 @@ function renderMessages() {
           <div class="message-time">${formatTimestamp(message.timestamp)}</div>
           ${reactionsHtml}
         </div>
-        <button class="add-reaction-button" onclick="window.showEmojiPicker('${message.id}', this)" title="Add reaction">😊</button>
+        <button 
+          class="add-reaction-button" 
+          onclick="window.showEmojiPicker('${message.id}', this)"
+          title="Add reaction">
+          😊
+        </button>
       </div>
     `;
   });
@@ -873,82 +1055,129 @@ function scrollChatToBottom() {
 }
 
 // ==========================================
-// EVENT SETUP
+// EVENT SETUP FUNCTIONS
 // ==========================================
 
-function setupEventListeners() {
-  console.log('Setting up event listeners...');
+function setupLoginEvents() {
+  const loginButton = document.getElementById('login-button');
+  if (loginButton) {
+    loginButton.addEventListener('click', handleLogin);
+  }
   
-  // Login
-  const loginBtn = document.getElementById('login-button');
   const usernameInput = document.getElementById('username-input');
-  console.log('login-button:', loginBtn, 'username-input:', usernameInput);
-  
-  loginBtn?.addEventListener('click', handleLogin);
-  usernameInput?.addEventListener('keypress', e => {
-    if (e.key === 'Enter') handleLogin();
-  });
-  
-  // Logout
-  document.getElementById('logout-button')?.addEventListener('click', handleLogout);
-  
-  // Groups - matching HTML IDs
+  if (usernameInput) {
+    usernameInput.addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') {
+        handleLogin();
+      }
+    });
+  }
+}
+
+function setupGroupsEvents() {
   const showCreateBtn = document.getElementById('show-create-group-button');
-  const joinBtn = document.getElementById('join-group-button');
-  const confirmCreateBtn = document.getElementById('confirm-create-group-button');
   const cancelCreateBtn = document.getElementById('cancel-create-group-button');
+  const confirmCreateBtn = document.getElementById('confirm-create-group-button');
   
-  console.log('show-create-group-button:', showCreateBtn);
-  console.log('join-group-button:', joinBtn);
-  console.log('confirm-create-group-button:', confirmCreateBtn);
-  console.log('cancel-create-group-button:', cancelCreateBtn);
+  if (showCreateBtn) showCreateBtn.addEventListener('click', showCreateGroupForm);
+  if (cancelCreateBtn) cancelCreateBtn.addEventListener('click', hideCreateGroupForm);
+  if (confirmCreateBtn) confirmCreateBtn.addEventListener('click', createGroup);
   
-  showCreateBtn?.addEventListener('click', showCreateGroupForm);
-  joinBtn?.addEventListener('click', joinGroup);
-  confirmCreateBtn?.addEventListener('click', createGroup);
-  cancelCreateBtn?.addEventListener('click', hideCreateGroupForm);
+  const joinBtn = document.getElementById('join-group-button');
+  if (joinBtn) joinBtn.addEventListener('click', joinGroup);
   
-  console.log('Event listeners attached!');
+  const searchInput = document.getElementById('search-groups-input');
+  if (searchInput) {
+    searchInput.addEventListener('input', renderGroups);
+  }
   
-  // Hangouts
-  document.getElementById('back-to-groups-button')?.addEventListener('click', () => {
-    currentGroup = null;
-    showPage('groups');
+  const logoutBtn = document.getElementById('logout-button');
+  if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+  
+  const groupNameInput = document.getElementById('new-group-name-input');
+  if (groupNameInput) {
+    groupNameInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') createGroup();
+    });
+  }
+  
+  const joinCodeInput = document.getElementById('join-code-input');
+  if (joinCodeInput) {
+    joinCodeInput.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') joinGroup();
+    });
+  }
+}
+
+function setupHangoutEvents() {
+  const backBtn = document.getElementById('back-to-groups-button');
+  if (backBtn) {
+    backBtn.addEventListener('click', function() {
+      currentGroup = null;
+      showPage('groups');
+    });
+  }
+  
+  const copyBtn = document.getElementById('copy-code-button');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      copyGroupCode(currentGroup.code);
+    });
+  }
+  
+  const leaveBtn = document.getElementById('leave-group-button');
+  if (leaveBtn) {
+    leaveBtn.addEventListener('click', function() {
+      leaveGroup(currentGroup.id);
+    });
+  }
+  
+  const proposeBtn = document.getElementById('propose-hangout-button');
+  const cancelBtn = document.getElementById('cancel-hangout-button');
+  const submitBtn = document.getElementById('submit-hangout-button');
+  
+  if (proposeBtn) proposeBtn.addEventListener('click', showHangoutForm);
+  if (cancelBtn) cancelBtn.addEventListener('click', hideHangoutForm);
+  if (submitBtn) submitBtn.addEventListener('click', proposeHangout);
+  
+  const filterButtons = document.querySelectorAll('.filter-button');
+  filterButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      setHangoutFilter(btn.getAttribute('data-filter'));
+    });
   });
-  document.getElementById('copy-code-button')?.addEventListener('click', () => copyGroupCode(currentGroup.code));
-  document.getElementById('leave-group-button')?.addEventListener('click', () => leaveGroup(currentGroup.id));
-  document.getElementById('propose-hangout-button')?.addEventListener('click', showHangoutForm);
-  document.getElementById('cancel-hangout-button')?.addEventListener('click', hideHangoutForm);
-  document.getElementById('submit-hangout-button')?.addEventListener('click', proposeHangout);
+}
+
+function setupChatEvents() {
+  const sendBtn = document.getElementById('send-message-button');
+  if (sendBtn) {
+    sendBtn.addEventListener('click', sendMessage);
+  }
   
-  // Filter buttons
-  document.querySelectorAll('.filter-button').forEach(btn => {
-    btn.addEventListener('click', () => setHangoutFilter(btn.getAttribute('data-filter')));
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) {
+    chatInput.addEventListener('keypress', function(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    });
+  }
+  
+  const emojiButtons = document.querySelectorAll('.emoji-option');
+  emojiButtons.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const emoji = btn.getAttribute('data-emoji');
+      handleEmojiClick(emoji);
+    });
   });
   
-  // Chat
-  document.getElementById('send-message-button')?.addEventListener('click', sendMessage);
-  document.getElementById('chat-input')?.addEventListener('keypress', e => {
-    if (e.key === 'Enter') sendMessage();
-  });
-  
-  // Emoji picker
-  document.querySelectorAll('.emoji-option').forEach(btn => {
-    btn.addEventListener('click', () => handleEmojiClick(btn.getAttribute('data-emoji')));
-  });
-  
-  document.addEventListener('click', e => {
+  document.addEventListener('click', function(event) {
     const picker = document.getElementById('emoji-picker');
     if (picker && !picker.classList.contains('hidden')) {
-      if (!picker.contains(e.target) && !e.target.classList.contains('add-reaction-button')) {
+      if (!picker.contains(event.target) && !event.target.classList.contains('add-reaction-button')) {
         hideEmojiPicker();
       }
     }
-  });
-  
-  // Dark mode
-  document.querySelectorAll('[id^="dark-mode-toggle"]').forEach(btn => {
-    btn.addEventListener('click', toggleDarkMode);
   });
 }
 
@@ -957,39 +1186,48 @@ function setupEventListeners() {
 // ==========================================
 
 window.openGroup = openGroup;
+window.leaveGroup = leaveGroup;
+window.copyGroupCode = copyGroupCode;
 window.respondToHangout = respondToHangout;
 window.deleteHangout = deleteHangout;
 window.addReaction = addReaction;
 window.showEmojiPicker = showEmojiPicker;
 
 // ==========================================
-// INITIALIZATION
+// INITIALIZE APP
 // ==========================================
 
 async function initializeApp() {
   console.log('🐝 HangHive is starting up!');
   
-  // Load from localStorage first (fast)
+  // Load saved data
   groups = loadGroups();
   currentUser = loadUser();
   
   // Apply dark mode
   applyDarkMode();
   
-  // Setup event listeners
-  setupEventListeners();
+  // Set up event listeners
+  setupLoginEvents();
+  setupGroupsEvents();
+  setupHangoutEvents();
+  setupChatEvents();
   
-  // Show appropriate page immediately (don't wait for Firebase)
+  // Dark mode toggle buttons
+  const darkModeButtons = document.querySelectorAll('[id^="dark-mode-toggle"]');
+  darkModeButtons.forEach(function(button) {
+    button.addEventListener('click', toggleDarkMode);
+  });
+  
+  // If user is logged in, load groups from server
   if (currentUser) {
+    try {
+      groups = await loadGroupsFromServer();
+      console.log('✅ Loaded groups from Firebase');
+    } catch (error) {
+      console.log('⚠️ Using local data');
+    }
     showPage('groups');
-    
-    // Load from Firebase in background (non-blocking)
-    loadGroupsFromFirebase().then(() => {
-      renderGroups(); // Re-render with fresh data
-      console.log('✅ Synced with Firebase');
-    }).catch(err => {
-      console.log('⚠️ Firebase unavailable, using local data');
-    });
   } else {
     showPage('login');
   }
