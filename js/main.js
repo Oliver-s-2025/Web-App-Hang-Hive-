@@ -12,16 +12,8 @@ import {
   collection, 
   doc, 
   getDocs, 
-  getDoc,
   setDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc,
-  query,
-  where,
-  onSnapshot,
-  arrayUnion,
-  arrayRemove
+  deleteDoc
 } from 'firebase/firestore';
 
 // ==========================================
@@ -220,13 +212,18 @@ function applyDarkMode() {
 
 async function loadGroupsFromFirebase() {
   try {
+    // Simple query - get all groups, filter locally
+    // This avoids needing Firebase indexes
     const groupsRef = collection(db, 'groups');
-    const q = query(groupsRef, where('members', 'array-contains', currentUser.username));
-    const snapshot = await getDocs(q);
+    const snapshot = await getDocs(groupsRef);
     
     groups = [];
-    snapshot.forEach(doc => {
-      groups.push({ id: doc.id, ...doc.data() });
+    snapshot.forEach(docSnap => {
+      const groupData = { id: docSnap.id, ...docSnap.data() };
+      // Only include groups the user is a member of
+      if (groupData.members && groupData.members.includes(currentUser.username)) {
+        groups.push(groupData);
+      }
     });
     
     saveGroups(groups);
@@ -234,17 +231,22 @@ async function loadGroupsFromFirebase() {
   } catch (error) {
     console.error('Error loading groups from Firebase:', error);
     isFirebaseAvailable = false;
+    // Fall back to local storage
     return loadGroups();
   }
 }
 
 async function saveGroupToFirebase(group) {
+  if (!isFirebaseAvailable) {
+    return false;
+  }
   try {
     const groupRef = doc(db, 'groups', group.id);
     await setDoc(groupRef, group);
     return true;
   } catch (error) {
     console.error('Error saving group to Firebase:', error);
+    isFirebaseAvailable = false;
     return false;
   }
 }
@@ -255,6 +257,7 @@ async function saveGroupToFirebase(group) {
 
 async function handleLogin() {
   const usernameInput = document.getElementById('username-input');
+  const loginButton = document.getElementById('login-button');
   const username = usernameInput.value.trim();
   
   if (username === '') {
@@ -267,6 +270,12 @@ async function handleLogin() {
     return;
   }
   
+  // Show loading state
+  if (loginButton) {
+    loginButton.textContent = 'Loading...';
+    loginButton.disabled = true;
+  }
+  
   currentUser = {
     username: username,
     id: generateId(),
@@ -275,11 +284,23 @@ async function handleLogin() {
   
   saveUser(currentUser);
   
-  // Load groups from Firebase
-  await loadGroupsFromFirebase();
-  
+  // Show the groups page immediately with local data
+  groups = loadGroups();
   showToast(`Welcome, ${username}! 🐝`, 'success');
   showPage('groups');
+  
+  // Reset button
+  if (loginButton) {
+    loginButton.textContent = 'Enter the Hive 🐝';
+    loginButton.disabled = false;
+  }
+  
+  // Load from Firebase in background (non-blocking)
+  loadGroupsFromFirebase().then(() => {
+    renderGroups(); // Re-render with fresh data
+  }).catch(err => {
+    console.log('Firebase sync failed, using local data');
+  });
 }
 
 function handleLogout() {
@@ -345,14 +366,16 @@ async function joinGroup() {
     return;
   }
   
+  showToast('Searching for group...', 'info');
+  
   try {
     // Search for group by code in Firebase
     const groupsRef = collection(db, 'groups');
     const snapshot = await getDocs(groupsRef);
     
     let foundGroup = null;
-    snapshot.forEach(doc => {
-      const group = { id: doc.id, ...doc.data() };
+    snapshot.forEach(docSnap => {
+      const group = { id: docSnap.id, ...docSnap.data() };
       if (group.code === code) {
         foundGroup = group;
       }
@@ -363,12 +386,13 @@ async function joinGroup() {
       return;
     }
     
-    if (foundGroup.members.includes(currentUser.username)) {
+    if (foundGroup.members && foundGroup.members.includes(currentUser.username)) {
       showToast('You are already in this group', 'error');
       return;
     }
     
     // Add member to group
+    if (!foundGroup.members) foundGroup.members = [];
     foundGroup.members.push(currentUser.username);
     await saveGroupToFirebase(foundGroup);
     
@@ -382,7 +406,7 @@ async function joinGroup() {
     
   } catch (error) {
     console.error('Error joining group:', error);
-    showToast('Error joining group', 'error');
+    showToast('Error joining group - check your connection', 'error');
   }
 }
 
@@ -932,11 +956,17 @@ async function initializeApp() {
   // Setup event listeners
   setupEventListeners();
   
-  // Show appropriate page
+  // Show appropriate page immediately (don't wait for Firebase)
   if (currentUser) {
-    // Load from Firebase
-    await loadGroupsFromFirebase();
     showPage('groups');
+    
+    // Load from Firebase in background (non-blocking)
+    loadGroupsFromFirebase().then(() => {
+      renderGroups(); // Re-render with fresh data
+      console.log('✅ Synced with Firebase');
+    }).catch(err => {
+      console.log('⚠️ Firebase unavailable, using local data');
+    });
   } else {
     showPage('login');
   }
