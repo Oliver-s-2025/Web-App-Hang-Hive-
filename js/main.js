@@ -317,8 +317,10 @@ function handleLogout() {
 // ==========================================
 
 async function createGroup() {
+  console.log('createGroup called');
   const nameInput = document.getElementById('new-group-name-input');
   const groupName = nameInput ? nameInput.value.trim() : '';
+  console.log('groupName:', groupName);
   
   if (groupName === '') {
     showToast('Please enter a group name', 'error');
@@ -343,7 +345,7 @@ async function createGroup() {
     groups.push(newGroup);
     saveGroups(groups);
     showToast(`Group "${groupName}" created! 🎉`, 'success');
-    nameInput.value = '';
+    if (nameInput) nameInput.value = '';
     hideCreateGroupForm();
     renderGroups();
   } else {
@@ -351,15 +353,17 @@ async function createGroup() {
     groups.push(newGroup);
     saveGroups(groups);
     showToast(`Group created (offline mode)`, 'info');
-    nameInput.value = '';
+    if (nameInput) nameInput.value = '';
     hideCreateGroupForm();
     renderGroups();
   }
 }
 
 async function joinGroup() {
+  console.log('joinGroup called');
   const codeInput = document.getElementById('join-code-input');
   const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+  console.log('code:', code);
   
   if (code === '') {
     showToast('Please enter a group code', 'error');
@@ -484,8 +488,10 @@ function renderGroups() {
 }
 
 function showCreateGroupForm() {
+  console.log('showCreateGroupForm called');
   const form = document.getElementById('create-group-form');
   const btn = document.getElementById('show-create-group-button');
+  console.log('form:', form, 'btn:', btn);
   if (form) form.classList.remove('hidden');
   if (btn) btn.classList.add('hidden');
 }
@@ -871,21 +877,38 @@ function scrollChatToBottom() {
 // ==========================================
 
 function setupEventListeners() {
+  console.log('Setting up event listeners...');
+  
   // Login
-  document.getElementById('login-button')?.addEventListener('click', handleLogin);
-  document.getElementById('username-input')?.addEventListener('keypress', e => {
+  const loginBtn = document.getElementById('login-button');
+  const usernameInput = document.getElementById('username-input');
+  console.log('login-button:', loginBtn, 'username-input:', usernameInput);
+  
+  loginBtn?.addEventListener('click', handleLogin);
+  usernameInput?.addEventListener('keypress', e => {
     if (e.key === 'Enter') handleLogin();
   });
   
   // Logout
   document.getElementById('logout-button')?.addEventListener('click', handleLogout);
-  document.getElementById('logout-button-hangout')?.addEventListener('click', handleLogout);
   
   // Groups - matching HTML IDs
-  document.getElementById('show-create-group-button')?.addEventListener('click', showCreateGroupForm);
-  document.getElementById('join-group-button')?.addEventListener('click', joinGroup);
-  document.getElementById('confirm-create-group-button')?.addEventListener('click', createGroup);
-  document.getElementById('cancel-create-group-button')?.addEventListener('click', hideCreateGroupForm);
+  const showCreateBtn = document.getElementById('show-create-group-button');
+  const joinBtn = document.getElementById('join-group-button');
+  const confirmCreateBtn = document.getElementById('confirm-create-group-button');
+  const cancelCreateBtn = document.getElementById('cancel-create-group-button');
+  
+  console.log('show-create-group-button:', showCreateBtn);
+  console.log('join-group-button:', joinBtn);
+  console.log('confirm-create-group-button:', confirmCreateBtn);
+  console.log('cancel-create-group-button:', cancelCreateBtn);
+  
+  showCreateBtn?.addEventListener('click', showCreateGroupForm);
+  joinBtn?.addEventListener('click', joinGroup);
+  confirmCreateBtn?.addEventListener('click', createGroup);
+  cancelCreateBtn?.addEventListener('click', hideCreateGroupForm);
+  
+  console.log('Event listeners attached!');
   
   // Hangouts
   document.getElementById('back-to-groups-button')?.addEventListener('click', () => {
