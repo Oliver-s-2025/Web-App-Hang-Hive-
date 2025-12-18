@@ -317,8 +317,8 @@ function handleLogout() {
 // ==========================================
 
 async function createGroup() {
-  const nameInput = document.getElementById('new-group-name');
-  const groupName = nameInput.value.trim();
+  const nameInput = document.getElementById('new-group-name-input');
+  const groupName = nameInput ? nameInput.value.trim() : '';
   
   if (groupName === '') {
     showToast('Please enter a group name', 'error');
@@ -358,8 +358,8 @@ async function createGroup() {
 }
 
 async function joinGroup() {
-  const codeInput = document.getElementById('join-group-code');
-  const code = codeInput.value.trim().toUpperCase();
+  const codeInput = document.getElementById('join-code-input');
+  const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
   
   if (code === '') {
     showToast('Please enter a group code', 'error');
@@ -400,8 +400,7 @@ async function joinGroup() {
     saveGroups(groups);
     
     showToast(`Joined "${foundGroup.name}"! 🎉`, 'success');
-    codeInput.value = '';
-    hideJoinGroupForm();
+    clearJoinInput();
     renderGroups();
     
   } catch (error) {
@@ -485,21 +484,24 @@ function renderGroups() {
 }
 
 function showCreateGroupForm() {
-  document.getElementById('create-group-form').classList.remove('hidden');
+  const form = document.getElementById('create-group-form');
+  const btn = document.getElementById('show-create-group-button');
+  if (form) form.classList.remove('hidden');
+  if (btn) btn.classList.add('hidden');
 }
 
 function hideCreateGroupForm() {
-  document.getElementById('create-group-form').classList.add('hidden');
-  document.getElementById('new-group-name').value = '';
+  const form = document.getElementById('create-group-form');
+  const btn = document.getElementById('show-create-group-button');
+  const input = document.getElementById('new-group-name-input');
+  if (form) form.classList.add('hidden');
+  if (btn) btn.classList.remove('hidden');
+  if (input) input.value = '';
 }
 
-function showJoinGroupForm() {
-  document.getElementById('join-group-form').classList.remove('hidden');
-}
-
-function hideJoinGroupForm() {
-  document.getElementById('join-group-form').classList.add('hidden');
-  document.getElementById('join-group-code').value = '';
+function clearJoinInput() {
+  const input = document.getElementById('join-code-input');
+  if (input) input.value = '';
 }
 
 function copyGroupCode(code) {
@@ -879,13 +881,11 @@ function setupEventListeners() {
   document.getElementById('logout-button')?.addEventListener('click', handleLogout);
   document.getElementById('logout-button-hangout')?.addEventListener('click', handleLogout);
   
-  // Groups
-  document.getElementById('create-group-button')?.addEventListener('click', showCreateGroupForm);
-  document.getElementById('join-group-button')?.addEventListener('click', showJoinGroupForm);
-  document.getElementById('confirm-create-group')?.addEventListener('click', createGroup);
-  document.getElementById('cancel-create-group')?.addEventListener('click', hideCreateGroupForm);
-  document.getElementById('confirm-join-group')?.addEventListener('click', joinGroup);
-  document.getElementById('cancel-join-group')?.addEventListener('click', hideJoinGroupForm);
+  // Groups - matching HTML IDs
+  document.getElementById('show-create-group-button')?.addEventListener('click', showCreateGroupForm);
+  document.getElementById('join-group-button')?.addEventListener('click', joinGroup);
+  document.getElementById('confirm-create-group-button')?.addEventListener('click', createGroup);
+  document.getElementById('cancel-create-group-button')?.addEventListener('click', hideCreateGroupForm);
   
   // Hangouts
   document.getElementById('back-to-groups-button')?.addEventListener('click', () => {
