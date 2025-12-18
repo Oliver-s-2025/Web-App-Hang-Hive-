@@ -447,8 +447,10 @@ function handleLogout() {
 // ==========================================
 
 async function createGroup() {
+  console.log('🆕 createGroup() called!');
   const nameInput = document.getElementById('new-group-name-input');
   const groupName = nameInput.value.trim();
+  console.log('Group name:', groupName);
   
   if (groupName === '') {
     showToast('Please enter a group name', 'error');
@@ -456,7 +458,9 @@ async function createGroup() {
   }
   
   try {
+    console.log('Creating group in Firebase...');
     const newGroup = await apiCreateGroup(groupName, currentUser.username);
+    console.log('Group created:', newGroup);
     groups.push(newGroup);
     saveGroups(groups);
     showToast(`Group created! Code: ${newGroup.code}`, 'success');
@@ -464,6 +468,7 @@ async function createGroup() {
     hideCreateGroupForm();
     renderGroups();
   } catch (error) {
+    console.error('Create group error:', error);
     showToast(error.message || 'Could not create group', 'error');
   }
 }
@@ -589,8 +594,10 @@ function copyGroupCode(code) {
 }
 
 function showCreateGroupForm() {
+  console.log('📝 showCreateGroupForm() called!');
   const form = document.getElementById('create-group-form');
   const button = document.getElementById('show-create-group-button');
+  console.log('Form found:', !!form);
   if (form) form.classList.remove('hidden');
   if (button) button.classList.add('hidden');
 }
@@ -1075,9 +1082,14 @@ function setupLoginEvents() {
 }
 
 function setupGroupsEvents() {
+  console.log('📋 Setting up group events...');
+  
   const showCreateBtn = document.getElementById('show-create-group-button');
   const cancelCreateBtn = document.getElementById('cancel-create-group-button');
   const confirmCreateBtn = document.getElementById('confirm-create-group-button');
+  
+  console.log('Show create button found:', !!showCreateBtn);
+  console.log('Confirm create button found:', !!confirmCreateBtn);
   
   if (showCreateBtn) showCreateBtn.addEventListener('click', showCreateGroupForm);
   if (cancelCreateBtn) cancelCreateBtn.addEventListener('click', hideCreateGroupForm);
